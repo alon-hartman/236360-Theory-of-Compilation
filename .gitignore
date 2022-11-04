@@ -3,6 +3,7 @@
 ### C++ ###
 # Compiled Object files
 *.o
+*.out
 
 # Compiled Dynamic libraries
 *.so 
@@ -24,6 +25,7 @@
 ### Project ###
 *.code-workspace
 *.zip
+*.in
 hw1/examples/*
 
 # End

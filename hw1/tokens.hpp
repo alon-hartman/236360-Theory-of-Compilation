@@ -31,7 +31,15 @@ enum tokentype
     COMMENT = 26,
     ID = 27,
     NUM = 28,
-    STRING = 29
+    STRING = 29,
+    ERROR,
+    UNRECOGNIZED_CHAR,
+    UNCLOSED_STRING,
+    HEX_ERROR,
+    HEX_LENGTH_0,
+    HEX_LENGTH_1,
+    ESCAPE_ERROR,
+    ENUM_SIZE
 };
 extern int yylineno;
 extern char *yytext;
