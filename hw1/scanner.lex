@@ -40,7 +40,7 @@ b									return B;
 =									return ASSIGN;
 ==|!=|<=|>=|<|>						return RELOP;
 [\+\-\*\/]							return BINOP;
-\/\/([^\n\r])+|\/\/[\n\r]			return COMMENT; /* TODO: check if need to catch empty comment ("//\n") */
+\/\/([^\n\r])+|\/\/			return COMMENT; /* TODO: check if need to catch empty comment ("//\n") */
 {id}								return ID;
 0[1-9][0-9]*						return ERROR; 
 ([1-9]{digit}*)|(0)					return NUM;
