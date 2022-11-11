@@ -9,7 +9,6 @@
 %option noyywrap
 
 digit 		([0-9])
-hex			([0-9A-F])
 letter 		([a-zA-Z])
 whitespace  ([\t\n\r ])
 id          {letter}({letter}|{digit})*
@@ -42,8 +41,6 @@ b														return B;
 [\+\-\*\/]												return BINOP;
 \/\/([^\n\r])+|\/\/										return COMMENT;
 {id}													return ID;
-0[1-9][0-9]*											return ERROR; /* fail on leading zero in number */
-{digit}+\.{digit}+										return ERROR;  /* fail on float */
 ([1-9]{digit}*)|(0)										return NUM;
 \"([^\"])*[\x0A\x0D]+.*\"|\"([^\"\n\r])*				return UNCLOSED_STRING;  /* fail on unclosed string */
 (\"(.*)([^\\])((\\){2})*\\x.\")|(\"((\\){2})*\\x.\") 	return HEX_LENGTH_1;  /* fail on illegal hex character after \x */

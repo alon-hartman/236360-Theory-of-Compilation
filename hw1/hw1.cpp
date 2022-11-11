@@ -26,10 +26,9 @@ int main()
             cout << yylineno << " " << token_to_string[token] << " //" << endl;
             break;
         case STRING: {
-            stringstream buffer;
-            buffer << yylineno << " " << token_to_string[token] << " ";
+            string buffer;
             string input_text(yytext);
-            for (int i = 1; i < input_text.length() - 1; ++i)
+            for (unsigned int i = 1; i < input_text.length() - 1; ++i)
             {
                 if (input_text[i] == '\\')
                 {
@@ -42,41 +41,37 @@ int main()
                     switch (input_text[i])
                     {
                     case '\\':
-                        buffer << '\\';
+                        buffer += '\\';
                         break;
-                    case 'x':
-                        try
-                        {
-                            int c1 = (input_text.substr(i + 1, 1)).c_str()[0];
-                            int c2 = (input_text.substr(i + 2, 1)).c_str()[0];
-                            if (!((('0' <= c1 && c1 <= '9') || ('A' <= c1 && c1 <= 'F')) &&
-                                  (('0' <= c2 && c2 <= '9') || ('A' <= c2 && c2 <= 'F'))))
-                            {
-                                throw invalid_argument("");
-                            }
-                        }
-                        catch (invalid_argument)
+                    case 'x': {
+                        // check both characters are legal hex characters
+                        int c1 = (input_text.substr(i + 1, 1)).c_str()[0];
+                        int c2 = (input_text.substr(i + 2, 1)).c_str()[0];
+                        if (!((('0' <= c1 && c1 <= '7')) &&
+                              (('0' <= c2 && c2 <= '9') || ('A' <= c2 && c2 <= 'F') || ('a' <= c2 && c2 <= 'f'))))
                         {
                             cout << "Error undefined escape sequence " << input_text.substr(i, 3) << endl;
                             exit(0);
                         }
-                        buffer << (char)std::stoi(input_text.substr(i + 1, 2), nullptr, 16);
+                        buffer.push_back((char)std::stoi(input_text.substr(i + 1, 2), nullptr, 16));
                         i += 2;
                         break;
+                    }
                     case 't':
-                        buffer << '\t';
+                        buffer += '\t';
                         break;
                     case 'n':
-                        buffer << endl;
+                        buffer += '\n';
                         break;
                     case '0':
-                        buffer << '\0';
+                        buffer.push_back('\0');
+                        // buffer += '0';
                         break;
                     case 'r':
-                        buffer << '\r';
+                        buffer += '\r';
                         break;
                     case '"':
-                        buffer << '"';
+                        buffer += '"';
                         break;
                     default:
                         cout << "Error undefined escape sequence " << input_text[i] << endl;
@@ -85,10 +80,10 @@ int main()
                 }
                 else
                 {
-                    buffer << input_text[i];
+                    buffer += input_text[i];
                 }
             }
-            cout << buffer.str() << endl;
+            cout << yylineno << " " << token_to_string[token] << " " << buffer.c_str() << endl;
             break;
         }
         case UNRECOGNIZED_CHAR:
@@ -99,7 +94,7 @@ int main()
             exit(0);
         case ESCAPE_ERROR: {
             string input_text = yytext;
-            for (int i = 1; i < input_text.length() - 1; ++i)
+            for (unsigned int i = 1; i < input_text.length() - 1; ++i)
             {
                 if (input_text[i] == '\\')
                 {
