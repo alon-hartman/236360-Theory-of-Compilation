@@ -9,37 +9,36 @@
     
     extern int yylineno;
 
-    // #define YYERROR_VERBOSE 1
-    // #define YYDEBUG 1
+    #define YYERROR_VERBOSE 1
+    #define YYDEBUG 1
 %}
 
 %token ID
-%token LBRACE
-%token RBRACE
 %token VOID
 %token COMMA
 %token SC
-%token ASSIGN
 %token RETURN
 %token IF
 %token WHILE
 %token BREAK
 %token CONTINUE
-%nonassoc BINOP
-%token STRING
 %token B
-%nonassoc AND
-%nonassoc OR
 %token NUM
 %token TRUE
 %token FALSE
-%nonassoc RELOP
-%nonassoc NOT
 %token INT
 %token BYTE
 %token BOOL
-%nonassoc LPAREN
-%nonassoc RPAREN
+%nonassoc ASSIGN
+%left OR
+%left AND
+%left EQUALITY
+%nonassoc RELATIONAL
+%left ADDITIVE
+%left MULTIPLICATIVE
+%nonassoc NOT
+%left LPAREN RPAREN LBRACE RBRACE
+%nonassoc STRING
 %nonassoc ELSE
 
 %%
@@ -78,7 +77,7 @@ Statement: LBRACE Statements RBRACE {printProductionRule(14);}
             | CONTINUE SC {printProductionRule(25);}
 ; 
 Call: ID LPAREN ExpList RPAREN {printProductionRule(26);}
-    | ID LPAREN RPAREN {printProductionRule(27);}
+    | ID LPAREN RPAREN {printProductionRule(27);} %prec OR
 ; 
 ExpList: Exp {printProductionRule(28);}
         | Exp COMMA ExpList {printProductionRule(29);}
@@ -89,7 +88,8 @@ Type: INT {printProductionRule(30);}
 ; 
 
 Exp : LPAREN Exp RPAREN  {printProductionRule(33);}
-    | Exp BINOP Exp {printProductionRule(34);}
+    | Exp ADDITIVE Exp {printProductionRule(34);}
+    | Exp MULTIPLICATIVE Exp {printProductionRule(34);}
     | ID {printProductionRule(35);}
     | Call {printProductionRule(36);}
     | NUM {printProductionRule(37);}
@@ -100,7 +100,8 @@ Exp : LPAREN Exp RPAREN  {printProductionRule(33);}
     | NOT Exp {printProductionRule(42);}
     | Exp AND Exp {printProductionRule(43);}
     | Exp OR Exp {printProductionRule(44);}
-    | Exp RELOP Exp {printProductionRule(45);}
+    | Exp EQUALITY Exp {printProductionRule(45);}
+    | Exp RELATIONAL Exp {printProductionRule(45);}
     | LPAREN Type RPAREN Exp {printProductionRule(46);}
 ;
 %%
@@ -113,4 +114,5 @@ int main()
 
 void yyerror(char const* s) {
     errorSyn(yylineno);
+    exit(0);
 }

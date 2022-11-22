@@ -25,7 +25,11 @@
 ### Project ###
 *.code-workspace
 *.zip
+*.tar.gz
 *.in
 hw1/examples/*
-
+hw2/examples/*
+*.tab.*
+*.yy.c
+*.output
 # End

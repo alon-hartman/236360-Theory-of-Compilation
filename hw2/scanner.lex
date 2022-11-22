@@ -10,6 +10,11 @@
 
 whitespace   ([\t\n\r ])
 line_comment (\/\/[^\r\n]*[ \r|\n|\r\n]?)
+multDiv         (\*|[/])
+plusMinus       (\+|-)
+equalUnequal    (==|!=)
+inequality      (<|>|<=|>=)
+
 
 %%
 void                                return VOID;
@@ -35,11 +40,13 @@ continue                            return CONTINUE;
 \{                                  return LBRACE;
 \}                                  return RBRACE;
 =                                   return ASSIGN;
-==|!=|<|>|<=|>=           return RELOP;
-\+|\-|\*|\/                    return BINOP;
+{equalUnequal}				        return EQUALITY;
+{inequality}				        return RELATIONAL;
+{plusMinus}					        return ADDITIVE;
+{multDiv}					        return MULTIPLICATIVE;
 [a-zA-Z][a-zA-Z0-9]*                return ID;
-0|[1-9][0-9]*                     return NUM;
+0|[1-9][0-9]*                       return NUM;
 \"([^\n\r\"\\]|\\[rnt"\\])+\"       return STRING;
 {whitespace}                        { /* ignore */ };
 {line_comment}                      { /* ignore */ };
-.                                   {errorLex(yylineno);};
+.                                   { errorLex(yylineno); exit(0); };
