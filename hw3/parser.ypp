@@ -46,8 +46,8 @@
 Program: Funcs                                                      {$$ = $1;}
 ; 
 Funcs: FuncDecl Funcs                                               {$$ = new Node();
-                                                                     $$.m_type = $2.m_type;
-                                                                     $$.SetValue($1.m_string_val+$2.m_string_val);
+                                                                     $$->setType($2);
+                                                                     $$->SetValue($1.m_string_val+$2.m_string_val);
                                                                      Delete(2,$1,$2);
                                                                     }
        | /*epsilon*/                                                { $$ = new Node(); }
@@ -88,15 +88,15 @@ Statements: Statement                                               { $$ = $1; }
                                                                     // Both statement and statements
                                                                     // are biggest variables of unimportant type 
                                                                     // because program consists of statements
-                                                                        $$ = new Node();
-                                                                        $$.m_type = $2.m_type();
+                                                                        $$ = $1;
+                                                                        $$->m_types_list.push_back($2->m_type);
                                                                         delete $2;
                                                                     }
 ; 
 Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
             | Type ID SC                                            {$$ = new Node();
-                                                                     $$.m_type = $1.m_type;
-                                                                    $$.setValue($2.m_name); // Id name is the interesting part
+                                                                     $$->setType($1);
+                                                                     $$->setValue($2.m_name);  // Id name is the interesting part
                                                                      Delete(3,$1,$2,$3);
                                                                     }
             | Type ID ASSIGN Exp SC                                 { $$ = new Node($2->getName());
@@ -106,8 +106,8 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
                                                                       Delete(1, $2, $3, $4, $5 $1,); }
             | ID ASSIGN Exp SC                                      {
                                                                         $$ = new Node();
-                                                                        $$.m_type = $1.m_type;
-                                                                        $$.setValue($3);
+                                                                        $$->setType($1);
+                                                                        $$->setValue($3);
                                                                         Delete(4,$1,$2,$3,$4);
                                                                         
                                                                     }
@@ -116,8 +116,8 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
             | RETURN SC                                             {
                                                                     //Same as Continue SC - Reduce rule
                                                                       $$ = new Node($1.m_name);
-                                                                      $$.m_type = $1.m_type;
-                                                                      $$.setValue($1.m_string_val);
+                                                                      $$->setType($1);
+                                                                      $$->setValue($1.m_string_val);
                                                                       Delete(2,$1,$2);
                                                                       }
             | RETURN Exp SC                                         { $$ = new Node(); 
@@ -125,27 +125,29 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
                                                                       $$->setValue($2);
                                                                       Delete(3, $3 $1, $2); }
             | IF LPAREN Exp RPAREN Statement                        {$$ = new Node($1.m_name);
-                                                                      $$.m_type = $1.m_type;
-                                                                      $$.setValue($1.m_string_val);
+                                                                      $$->setType($5);
+                                                                      $$->setValue($1.m_string_val);
                                                                       Delete(5,$1,$2,$3,$4,$5);
                                                                       }
             | IF LPAREN Exp RPAREN Statement ELSE Statement         { $$ = new Node(); 
                                                                       // TODO: check Exp type
-                                                                      $$->m_type = types::Bool;
+                                                                      //$$->m_type = types::Bool;
+                                                                      $$->setType($5);
                                                                       $$->m_num_val = ($3->m_num_val != 0);
                                                                       Delete(7, $3, $4, $5, $6, $7 $1, $2,); }
             | WHILE LPAREN Exp RPAREN Statement                     {
                                                                       $$ = new Node($1.m_name);
-                                                                      $$.m_type = $1.m_type;
-                                                                      $$.setValue($1.m_string_val);
+                                                                      $$->setType($5);
+                                                                      // statement may contain return value
+                                                                      $$->setValue($1.m_string_val);
                                                                       Delete(5,$1,$2,$3,$4,$5);
                                                                     }
             | BREAK SC                                              { $$ = new Node(); 
                                                                       // TODO: check that we are in a while loop
                                                                       Delete(2, $1, $2); }
             | CONTINUE SC                                           {$$ = new Node($1.m_name);
-                                                                      $$.m_type = $1.m_type;
-                                                                      $$.setValue($1.m_string_val);
+                                                                      $$->setType($1);
+                                                                      $$->setValue($1.m_string_val);
                                                                       Delete(2, $1, $2);
                                                                       }
 ; 
@@ -159,23 +161,17 @@ Call: ID LPAREN ExpList RPAREN                                      { $$ = new N
                                                                     // is it needed in object itself?
                                                                       $$ = new Node($1.m_name);
                                                                       //$$.m_type = types::Func;
-                                                                      $$.m_type = $1.m_type;
+                                                                      $$->setType($1);
                                                                       // I saw we used type in exp Reduce so must be saved(?)
-                                                                      $$.setValue($1.m_value);
+                                                                      $$->setValue($1.m_value);
                                                                       Delete(2, $3, $2);  
                                                                     } %prec OR
 ; 
 ExpList: Exp                                                        { $$ = $1; }
     | Exp COMMA ExpList                                             {
-                                                                    // Premise: EXPLIST seperated by comma
-                                                                    // is a declaration of variables
-                                                                    //EXP can be either type (int,bool,string)
-                                                                    // but value of explist should
-                                                                    // probably contain the names of all of them
-                                                                    // because the type / value itself is meaningless
                                                                       $$ = new Node();
-                                                                      $$.m_type = $1.m_type;
-                                                                      $$.setValue($1.m_name + $3.m_string_val);
+                                                                      $$->setType($1);
+                                                                      $$->setValue($1.m_name + $3.m_string_val);
                                                                       Delete(3, $1, $2,$3);
                                                                       }
 ; 
@@ -186,21 +182,22 @@ Type: INT                                                           { $$ = $1; }
 
 Exp : LPAREN Exp RPAREN                                             { $$ = $2; }
     | Exp IF LPAREN Exp RPAREN ELSE Exp                             { $$ = new Node();
-                                                                      $$->m_type = $1->m_type; 
+                                                                      $$->setType($1);
                                                                       Delete(7, $1, $2, $3, $4, $5, $6, $7); }
     | Exp ADDITIVE Exp                                              { $$ = new Node();
-                                                                      $$->m_type = $1->m_type;
+                                                                      $$->setType($1);
                                                                       $$->setValue($1, $2, $3);
                                                                       Delete(3, $1, $2, $3);}
-    | Exp MULTIPLICATIVE Exp                                        { $$ = new Node(); 
-                                                                      $$->m_type = $1->m_type; 
+    | Exp MULTIPLICATIVE Exp                                        { $$ = new Node();
+                                                                      $$->setType($1);     
                                                                      $$->setValue($1, $2, $3); 
                                                                       Delete(3, $1, $2, $3); }
     | ID                                                            { $$ = new Node();
+                                                                      $$->setType($1);     
                                                                       $$->m_name = $1->m_name; 
                                                                       Delete(1, $1); }
     | Call                                                          { $$ = new Node();
-                                                                      $$->m_type = $1->m_type; 
+                                                                      $$->setType($1);     
                                                                       Delete(1, $1); }
     | NUM                                                           { $$ = $1; }
     | NUM B                                                         { $$ = new ByteType();
@@ -233,6 +230,7 @@ Exp : LPAREN Exp RPAREN                                             { $$ = $2; }
                                                                       $$->setValue($1, $2, $3);
                                                                       Delete(3, $1, $2, $3); }
     | Exp RELATIONAL Exp                                            { $$ = new Node();
+                                                                      $$->m_type = types::Bool;
                                                                       $$->setValue($1, $2, $3);
                                                                       Delete(3, $1, $2, $3); }
     | LPAREN Type RPAREN Exp                                        { $$ = new Node($4->m_name.c_str());
