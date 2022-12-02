@@ -42,20 +42,31 @@
 %nonassoc ELSE
 
 %%
-Program: Funcs                                                      {printProductionRule(1);}
+Program: Funcs                                                      {$$ = $1;}
 ; 
-Funcs: FuncDecl Funcs                                               {printProductionRule(3);}
+Funcs: FuncDecl Funcs                                               {$$ = new Node();
+                                                                     $$.m_type = $2.m_type;
+                                                                     $$.SetValue($1.m_string_val+$2.m_string_val);
+                                                                     delete $1;
+                                                                     delete $2; 
+                                                                    }
        | /*epsilon*/                                                {printProductionRule(2);}
 ;
 FuncDecl: RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {printProductionRule(4);}
 ; 
-RetType: Type                                                       {printProductionRule(5);}
+RetType: Type                                                       {
+                                                                        $$ = $1;
+                                                                    }
         | VOID                                                      {printProductionRule(6);}
 ;
 Formals: FormalsList                                                {printProductionRule(8);}
-        | /*epsilon*/                                               {printProductionRule(7);}
+        | /*epsilon*/                                               {
+                                                                        $$ = new Node();
+                                                                    }
 ; 
-FormalsList: FormalDecl                                             {printProductionRule(9);}
+FormalsList: FormalDecl                                             {
+                                                                        $$ = $1;
+                                                                    }
         | FormalDecl COMMA FormalsList                              {printProductionRule(10);}
 ; 
 FormalDecl: Type ID                                                 { $$ = new Node($2.m_name);
@@ -65,26 +76,101 @@ FormalDecl: Type ID                                                 { $$ = new N
                                                                       delete $2; }
 ; 
 Statements: Statement                                               {printProductionRule(12);}
-            | Statements Statement                                  {printProductionRule(13);}
+            | Statements Statement                                  {
+                                                                    // Both statement and statements
+                                                                    // are biggest variables of unimportant type 
+                                                                    // because program consists of statements
+                                                                        $$ = new Node();
+                                                                        $$.m_type = $2.m_type();
+                                                                        delete 
+                                                                        delete $2;
+                                                                    }
 ; 
 Statement: LBRACE Statements RBRACE                                 {printProductionRule(14);}
-            | Type ID SC                                            {printProductionRule(15);}
+            | Type ID SC                                            {$$ = new Node();
+                                                                     $$.m_type = $1.m_type;
+                                                                    $$.setValue($2.m_name); // Id name is the interesting part
+                                                                     delete $1;
+                                                                     delete $2;
+                                                                     delete $3;
+                                                                    }
             | Type ID ASSIGN Exp SC                                 {printProductionRule(16);}
-            | ID ASSIGN Exp SC                                      {printProductionRule(17);}
+            | ID ASSIGN Exp SC                                      {
+                                                                        $$ = new Node();
+                                                                        $$.m_type = $1.m_type;
+                                                                        $$.setValue($3);
+                                                                        delete $1;
+                                                                        delete $2;
+                                                                        delete $3;
+                                                                        delete $4;
+                                                                    }
             | Call SC                                               {printProductionRule(18);}
-            | RETURN SC                                             {printProductionRule(19);}
+            | RETURN SC                                             {
+                                                                    //Same as Continue SC - Reduce rule
+                                                                      $$ = new Node($1.m_name);
+                                                                      $$.m_type = $1.m_type;
+                                                                      $$.setValue($1.m_string_val);
+                                                                      delete $1;
+                                                                      delete $2;
+                                                                      }
             | RETURN Exp SC                                         {printProductionRule(20);}
-            | IF LPAREN Exp RPAREN Statement                        {printProductionRule(21);}
+            | IF LPAREN Exp RPAREN Statement                        {$$ = new Node($1.m_name);
+                                                                      $$.m_type = $1.m_type;
+                                                                      $$.setValue($1.m_string_val);
+                                                                      delete $1;
+                                                                      delete $2;
+                                                                      delete $3;
+                                                                      delete $4;
+                                                                      delete $5;
+                                                                      }
             | IF LPAREN Exp RPAREN Statement ELSE Statement         {printProductionRule(22);}
-            | WHILE LPAREN Exp RPAREN Statement                     {printProductionRule(23);}
+            | WHILE LPAREN Exp RPAREN Statement                     {
+                                                                      $$ = new Node($1.m_name);
+                                                                      $$.m_type = $1.m_type;
+                                                                      $$.setValue($1.m_string_val);
+                                                                      delete $1;
+                                                                      delete $2;
+                                                                      delete $3;
+                                                                      delete $4;
+                                                                      delete $5;
+                                                                    }
             | BREAK SC                                              {printProductionRule(24);}
-            | CONTINUE SC                                           {printProductionRule(25);}
+            | CONTINUE SC                                           {$$ = new Node($1.m_name);
+                                                                      $$.m_type = $1.m_type;
+                                                                      $$.setValue($1.m_string_val);
+                                                                      delete $1;
+                                                                      delete $2;
+                                                                      }
 ; 
 Call: ID LPAREN ExpList RPAREN                                      {printProductionRule(26);}
-    | ID LPAREN RPAREN                                              {printProductionRule(27);} %prec OR
+    | ID LPAREN RPAREN                                              {
+                                                                    //To think about - How we address return type
+                                                                    //and arguments of func
+                                                                    // is it needed in object itself?
+                                                                      $$ = new Node($1.m_name);
+                                                                      //$$.m_type = types::Func;
+                                                                      $$.m_type = $1.m_type;
+                                                                      // I saw we used type in exp Reduce so must be saved(?)
+                                                                      $$.setValue($1.m_value);
+                                                                      delete $2;
+                                                                      delete $3;   
+                                                                    } %prec OR
 ; 
 ExpList: Exp                                                        {printProductionRule(28);}
-    | Exp COMMA ExpList                                             {printProductionRule(29);}
+    | Exp COMMA ExpList                                             {
+                                                                    // Premise: EXPLIST seperated by comma
+                                                                    // is a declaration of variables
+                                                                    //EXP can be either type (int,bool,string)
+                                                                    // but value of explist should
+                                                                    // probably contain the names of all of them
+                                                                    // because the type / value itself is meaningless
+                                                                      $$ = new Node();
+                                                                      $$.m_type = $1.m_type;
+                                                                      $$.setValue($1.m_name + $3.m_string_val);
+                                                                      delete $1;
+                                                                      delete $2;
+                                                                      delete $3;
+                                                                      }
 ; 
 Type: INT                                                           { $$ = $1 }
     | BYTE                                                          { $$ = $1 }

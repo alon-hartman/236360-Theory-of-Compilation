@@ -32,6 +32,10 @@ public:
     }
     m_num_val = other.m_num_val;
   }
+  void SetValue(std::string string_val)
+  {
+    m_string_val = string_val;
+  }
 };
 
 class Num : public Node
