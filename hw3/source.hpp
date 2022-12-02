@@ -2,6 +2,9 @@
 #define PARSER_HPP
 
 #include <string>
+#include <vector>
+#include <cstdarg>
+#include <cassert>
 
 enum class types
 {
@@ -11,26 +14,74 @@ enum class types
   Byte,
   String,
   Func,
-  Void
+  Void,
+  Operator
 };
 
-class Node
+struct Node
 {
-public:
-  Node(char *yytext = "") : m_type(types::None), m_name(yytext) {}
+  Node(const char *yytext = "", int yylineno = -1) : m_type(types::None), m_name(yytext), m_lineno(yylineno) {}
+  virtual ~Node() {}
   types m_type;
   std::string m_name;
   int m_num_val;
   std::string m_string_val;
+  int m_lineno;
 
-  void setValue(Node &other)
+  std::vector<types> m_types_list;
+
+  virtual void setValue(Node *other)
   {
-    if (other.m_type == types::String)
+    switch (other->m_type)
     {
-      m_string_val = other.m_string_val;
+    case types::Int:
+    case types::Bool:
+    case types::Byte:
+      m_num_val = other->m_num_val;
+      return;
+    case types::String:
+      m_string_val = other->m_string_val;
+      return;
+    default:
       return;
     }
-    m_num_val = other.m_num_val;
+  }
+  virtual void setValue(Node *lhs, Node *op, Node *rhs)
+  {
+    assert(op->m_type == types::Operator);
+    if (op->m_name == "==")
+      this->m_num_val = (lhs->m_num_val == rhs->m_num_val);
+    else if (op->m_name == "!=")
+      this->m_num_val = (lhs->m_num_val != rhs->m_num_val);
+    else if (op->m_name == "<")
+      this->m_num_val = (lhs->m_num_val < rhs->m_num_val);
+    else if (op->m_name == ">")
+      this->m_num_val = (lhs->m_num_val > rhs->m_num_val);
+    else if (op->m_name == "<=")
+      this->m_num_val = (lhs->m_num_val <= rhs->m_num_val);
+    else if (op->m_name == ">=")
+      this->m_num_val = (lhs->m_num_val >= rhs->m_num_val);
+    else if (op->m_name == "+")
+      this->m_num_val = (lhs->m_num_val + rhs->m_num_val);
+    else if (op->m_name == "-")
+      this->m_num_val = (lhs->m_num_val - rhs->m_num_val);
+    else if (op->m_name == "*")
+      this->m_num_val = (lhs->m_num_val * rhs->m_num_val);
+    else if (op->m_name == "/")
+      this->m_num_val = (lhs->m_num_val / rhs->m_num_val);
+  }
+
+  virtual void setName(Node *other)
+  {
+    this->m_name = other->m_name;
+  }
+  virtual const char *getName()
+  {
+    return m_name.c_str();
+  }
+  virtual void setType(Node *other)
+  {
+    this->m_type = other->m_type;
   }
   void SetValue(std::string string_val)
   {
@@ -38,35 +89,79 @@ public:
   }
 };
 
-class Num : public Node
+struct Num : public Node
 {
-  Num(char *yytext) : Node(yytext), m_num_val(std::stoi(yytext)) {}
+  Num(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
+  {
+    m_num_val = std::stoi(yytext);
+  }
+  ~Num() {}
 };
 
-class IntType : public Node
+struct OpNode : public Node
 {
-  IntType(char *yytext = "") : Node(yytext) { m_type = types::Int; }
+  OpNode(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Operator; }
+  ~OpNode() {}
 };
-class VoidType : public Node
+
+struct IntType : public Node
 {
-  VoidType(char *yytext = "") : Node(yytext) { m_type = types::Void; }
+  IntType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Int; }
+  ~IntType() {}
 };
-class ByteType : public Node
+
+struct VoidType : public Node
 {
-  ByteType(char *yytext = "") : Node(yytext) { m_type = types::Byte; }
+  VoidType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Void; }
+  ~VoidType() {}
 };
-class BoolType : public Node
+
+struct ByteType : public Node
 {
-  BoolType(char *yytext = "") : Node(yytext) { m_type = types::Bool; }
+  ByteType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Byte; }
+  ~ByteType() {}
 };
-class StringType : public Node
+
+struct BoolType : public Node
 {
-  StringType(char *yytext = "") : Node(yytext)
+  BoolType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Bool; }
+  ~BoolType() {}
+};
+
+struct StringType : public Node
+{
+  StringType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
   {
     m_type = types::String;
     m_string_val = yytext;
   }
+  ~StringType() {}
 };
+
+struct IDNode : public Node
+{
+  IDNode(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
+  {
+    m_type = types::None;
+    m_name = yytext;
+  }
+  ~IDNode() {}
+};
+
+void Delete(int count, ...)
+{
+
+  va_list list;
+
+  va_start(list, count);
+
+  for (int i = 0; i < count; i++)
+  {
+    delete va_arg(list, Node *);
+  }
+
+  va_end(list);
+}
 
 #define YYSTYPE Node *
 
