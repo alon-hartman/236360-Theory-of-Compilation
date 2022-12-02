@@ -48,8 +48,7 @@ Program: Funcs                                                      {$$ = $1;}
 Funcs: FuncDecl Funcs                                               {$$ = new Node();
                                                                      $$.m_type = $2.m_type;
                                                                      $$.SetValue($1.m_string_val+$2.m_string_val);
-                                                                     delete $1;
-                                                                     delete $2; 
+                                                                     Delete(2,$1,$2);
                                                                     }
        | /*epsilon*/                                                { $$ = new Node(); }
 ;
@@ -91,7 +90,6 @@ Statements: Statement                                               { $$ = $1; }
                                                                     // because program consists of statements
                                                                         $$ = new Node();
                                                                         $$.m_type = $2.m_type();
-                                                                        delete 
                                                                         delete $2;
                                                                     }
 ; 
@@ -99,9 +97,7 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
             | Type ID SC                                            {$$ = new Node();
                                                                      $$.m_type = $1.m_type;
                                                                     $$.setValue($2.m_name); // Id name is the interesting part
-                                                                     delete $1;
-                                                                     delete $2;
-                                                                     delete $3;
+                                                                     Delete(3,$1,$2,$3);
                                                                     }
             | Type ID ASSIGN Exp SC                                 { $$ = new Node($2->getName());
                                                                       // TODO: check that Type and Exp types match
@@ -112,10 +108,8 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
                                                                         $$ = new Node();
                                                                         $$.m_type = $1.m_type;
                                                                         $$.setValue($3);
-                                                                        delete $1;
-                                                                        delete $2;
-                                                                        delete $3;
-                                                                        delete $4;
+                                                                        Delete(4,$1,$2,$3,$4);
+                                                                        
                                                                     }
             | Call SC                                               { $$ = $1; 
                                                                       Delete(1, $2); }
@@ -124,36 +118,27 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
                                                                       $$ = new Node($1.m_name);
                                                                       $$.m_type = $1.m_type;
                                                                       $$.setValue($1.m_string_val);
-                                                                      delete $1;
-                                                                      delete $2;
+                                                                      Delete(2,$1,$2);
                                                                       }
             | RETURN Exp SC                                         { $$ = new Node(); 
                                                                       $$->setType($2);
                                                                       $$->setValue($2);
-                                                                      Delete(2, $3 $1, $2,); }
+                                                                      Delete(3, $3 $1, $2); }
             | IF LPAREN Exp RPAREN Statement                        {$$ = new Node($1.m_name);
                                                                       $$.m_type = $1.m_type;
                                                                       $$.setValue($1.m_string_val);
-                                                                      delete $1;
-                                                                      delete $2;
-                                                                      delete $3;
-                                                                      delete $4;
-                                                                      delete $5;
+                                                                      Delete(5,$1,$2,$3,$4,$5);
                                                                       }
             | IF LPAREN Exp RPAREN Statement ELSE Statement         { $$ = new Node(); 
                                                                       // TODO: check Exp type
                                                                       $$->m_type = types::Bool;
                                                                       $$->m_num_val = ($3->m_num_val != 0);
-                                                                      Delete(2, $3, $4, $5, $6, $7 $1, $2,); }
+                                                                      Delete(7, $3, $4, $5, $6, $7 $1, $2,); }
             | WHILE LPAREN Exp RPAREN Statement                     {
                                                                       $$ = new Node($1.m_name);
                                                                       $$.m_type = $1.m_type;
                                                                       $$.setValue($1.m_string_val);
-                                                                      delete $1;
-                                                                      delete $2;
-                                                                      delete $3;
-                                                                      delete $4;
-                                                                      delete $5;
+                                                                      Delete(5,$1,$2,$3,$4,$5);
                                                                     }
             | BREAK SC                                              { $$ = new Node(); 
                                                                       // TODO: check that we are in a while loop
@@ -161,14 +146,13 @@ Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
             | CONTINUE SC                                           {$$ = new Node($1.m_name);
                                                                       $$.m_type = $1.m_type;
                                                                       $$.setValue($1.m_string_val);
-                                                                      delete $1;
-                                                                      delete $2;
+                                                                      Delete(2, $1, $2);
                                                                       }
 ; 
 Call: ID LPAREN ExpList RPAREN                                      { $$ = new Node($1->getName());
                                                                       // TODO: check that ExpList types and len matches ID
                                                                       $$->m_types_list = std::move($3->m_types_list);
-                                                                      Delete(2, $3, $4 $1, $2,); }
+                                                                      Delete(4, $3, $4 $1, $2); }
     | ID LPAREN RPAREN                                              {
                                                                     //To think about - How we address return type
                                                                     //and arguments of func
@@ -178,8 +162,7 @@ Call: ID LPAREN ExpList RPAREN                                      { $$ = new N
                                                                       $$.m_type = $1.m_type;
                                                                       // I saw we used type in exp Reduce so must be saved(?)
                                                                       $$.setValue($1.m_value);
-                                                                      delete $2;
-                                                                      delete $3;   
+                                                                      Delete(2, $3, $2);  
                                                                     } %prec OR
 ; 
 ExpList: Exp                                                        { $$ = $1; }
@@ -193,9 +176,7 @@ ExpList: Exp                                                        { $$ = $1; }
                                                                       $$ = new Node();
                                                                       $$.m_type = $1.m_type;
                                                                       $$.setValue($1.m_name + $3.m_string_val);
-                                                                      delete $1;
-                                                                      delete $2;
-                                                                      delete $3;
+                                                                      Delete(3, $1, $2,$3);
                                                                       }
 ; 
 Type: INT                                                           { $$ = $1; }
