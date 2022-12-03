@@ -143,25 +143,57 @@ struct IDNode : public Node
   IDNode(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
   {
     m_type = types::None;
-    m_name = yytext;
+    m_string_val = yytext;
   }
   ~IDNode() {}
 };
 
-void Delete(int count, ...)
+void Delete(int count, ...);
+
+class SymTable
 {
-
-  va_list list;
-
-  va_start(list, count);
-
-  for (int i = 0; i < count; i++)
+public:
+  enum class scope_type
   {
-    delete va_arg(list, Node *);
-  }
+    BLOCK,
+    FUNC,
+    IF,
+    WHILE,
+    ELSE
+  };
+  struct Entry
+  {
+    std::string name;
+    types return_type;
+    std::vector<types> types_vec;
+    int offset;
+    bool is_func;
+  };
+  struct Scope
+  {
+    std::vector<Entry> entries;
+    int offset;
+    int min_arg_offset;
+    scope_type type;
+    Scope(int offset) : entries(), offset(offset), min_arg_offset(-1), type(scope_type::BLOCK) {}
+  };
+  std::vector<Scope> scopes_stack;
 
-  va_end(list);
-}
+  SymTable();
+  Scope &push(scope_type type = scope_type::BLOCK);
+  void pop();
+  Scope &top();
+  void insert(Node *entry, bool is_func = false);
+
+  void insert_arg(Entry entry);
+  void insert_arg(Node *node);
+
+  Entry *find_entry(const std::string &name);
+  void check_type(Node *node, SymTable::Entry *entry);
+};
+
+std::string TypeToString(types type);
+std::vector<std::string> TypesToStrings(std::vector<types> &vec);
 
 #define YYSTYPE Node *
 

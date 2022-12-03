@@ -10,6 +10,8 @@
     
     extern int yylineno;
 
+    SymTable sym;
+
     #define YYERROR_VERBOSE 1
     #define YYDEBUG 1
 %}
@@ -43,34 +45,34 @@
 %nonassoc ELSE
 
 %%
-Program: Funcs                                                      {$$ = $1;}
+Program: M1 Funcs                                                   { $$ = $1; }
 ; 
-Funcs: FuncDecl Funcs                                               {$$ = new Node();
-                                                                     $$->setType($2);
-                                                                     $$->SetValue($1.m_string_val+$2.m_string_val);
-                                                                     Delete(2,$1,$2);
-                                                                    }
+Funcs: FuncDecl Funcs                                               { $$ = new Node();
+                                                                      $$->setType($2);
+                                                                      $$->SetValue($1->m_string_val+$2->m_string_val);
+                                                                      Delete(2, $1, $2); }
        | /*epsilon*/                                                { $$ = new Node(); }
 ;
-FuncDecl: RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE { $$ = new Node($2->getName());
-                                                                      $$->setType($1);
-                                                                      $$->setValue($2);
-                                                                      $$->m_types_list = std::move($4->m_types_list);
-                                                                      Delete(8, $1, $2, $3, $4, $5, $6, $7, $8); }
-; 
-RetType: Type                                                       {
-                                                                        $$ = $1;
-                                                                    }
+FuncDecl: RetType ID LPAREN Formals RPAREN M2 LBRACE Statements RBRACE { $$ = new Node($2->getName());
+                                                                         $$->setType($1);
+                                                                         $$->setValue($2);
+                                                                         $$->m_types_list = std::move($4->m_types_list);
+                                                                         Delete(8, $1, $2, $3, $4, $5, $6, $7, $8);
+                                                                         sym.pop(); }
+;
+M2 : { sym.Push(SymTable::scope_type::FUNC);
+       Node node(stack.peek(3).getName(), yylineno);
+       node.m_type = stack.peek(4)->m_type;
+       node.m_types_list = stack.peek(1)->m_types_list;
+       sym.insert(&node, true); }
+;
+RetType: Type                                                       { $$ = $1; }
         | VOID                                                      { $$ = $1; }
 ;
 Formals: FormalsList                                                { $$ = $1; }
-        | /*epsilon*/                                               {
-                                                                        $$ = new Node();
-                                                                    }
+        | /*epsilon*/                                               { $$ = new Node(); }
 ; 
-FormalsList: FormalDecl                                             {
-                                                                        $$ = $1;
-                                                                    }
+FormalsList: FormalDecl                                             { $$ = $1; }
         | FormalDecl COMMA FormalsList                              { $$ = $1;
                                                                       // TODO: check types in FormalsList
                                                                       $$->m_types_list.insert($$->m_types_list.end(),
@@ -78,102 +80,112 @@ FormalsList: FormalDecl                                             {
                                                                                               $3->m_types_list.end());
                                                                       Delete(2, $2, $3); }
 ;
-FormalDecl: Type ID                                                 { $$ = new Node();
+FormalDecl: Type ID                                                 { $$ = new Node("", yylineno);
                                                                       $$->setType($1);
                                                                       $$->m_types_list.push_back($1->m_type);
-                                                                      Delete(2, $1, $2); }
+                                                                      Delete(2, $1, $2);
+                                                                      sym.insert_arg($$); }
 ; 
 Statements: Statement                                               { $$ = $1; }
             | Statements Statement                                  {
                                                                     // Both statement and statements
                                                                     // are biggest variables of unimportant type 
                                                                     // because program consists of statements
-                                                                        $$ = $1;
-                                                                        $$->m_types_list.push_back($2->m_type);
-                                                                        delete $2;
-                                                                    }
+                                                                      $$ = $1;
+                                                                      $$->m_types_list.push_back($2->m_type);
+                                                                      Delete(1, $2); }
 ; 
-Statement: LBRACE Statements RBRACE                                 { $$ = $2; }
-            | Type ID SC                                            {$$ = new Node();
-                                                                     $$->setType($1);
-                                                                     $$->setValue($2.m_name);  // Id name is the interesting part
-                                                                     Delete(3,$1,$2,$3);
-                                                                    }
+Statement: LBRACE M1 Statements RBRACE                              { $$ = $2;
+                                                                      sym.pop(); }
+            | Type ID SC                                            { $$ = new Node();
+                                                                      $$->setType($1);
+                                                                      $$->setValue($2);  // Id name is the interesting part
+                                                                      Delete(3, $1, $2, $3); 
+                                                                      // TODO: check that ID doesnt exist in this scope
+                                                                      sym.insert($$); }
             | Type ID ASSIGN Exp SC                                 { $$ = new Node($2->getName());
                                                                       // TODO: check that Type and Exp types match
                                                                       $$->setType($1);
                                                                       $$->setValue($4);
-                                                                      Delete(1, $2, $3, $4, $5 $1,); }
-            | ID ASSIGN Exp SC                                      {
-                                                                        $$ = new Node();
-                                                                        $$->setType($1);
-                                                                        $$->setValue($3);
-                                                                        Delete(4,$1,$2,$3,$4);
-                                                                        
-                                                                    }
-            | Call SC                                               { $$ = $1; 
+                                                                      Delete(5, $2, $3, $4, $5, $1);
+                                                                      // TODO: check that ID doesnt exist in this scope
+                                                                      sym.insert($$); }
+            | ID ASSIGN Exp SC                                      { $$ = new Node();
+                                                                      $$->setType($1);
+                                                                      $$->setValue($3);
+                                                                      // TODO: check that ID exists
+                                                                      Delete(4, $1, $2, $3, $4); }
+            | Call SC                                               { $$ = $1;
+                                                                      $$->setType($1);
                                                                       Delete(1, $2); }
             | RETURN SC                                             {
                                                                     //Same as Continue SC - Reduce rule
-                                                                      $$ = new Node($1.m_name);
-                                                                      $$->setType($1);
-                                                                      $$->setValue($1.m_string_val);
-                                                                      Delete(2,$1,$2);
-                                                                      }
-            | RETURN Exp SC                                         { $$ = new Node(); 
+                                                                      $$ = new Node($1->getName());
+                                                                      $$->setType($1);  // TODO: maybe set as VOID?
+                                                                      $$->setValue($1);
+                                                                      Delete(2, $1, $2); }
+            | RETURN Exp SC                                         { $$ = new Node();
                                                                       $$->setType($2);
                                                                       $$->setValue($2);
-                                                                      Delete(3, $3 $1, $2); }
-            | IF LPAREN Exp RPAREN Statement                        {$$ = new Node($1.m_name);
+                                                                      Delete(3, $1, $2, $3); }
+            | IF MIF LPAREN Exp RPAREN Statement                        { $$ = new Node($1->getName());
                                                                       $$->setType($5);
-                                                                      $$->setValue($1.m_string_val);
-                                                                      Delete(5,$1,$2,$3,$4,$5);
-                                                                      }
-            | IF LPAREN Exp RPAREN Statement ELSE Statement         { $$ = new Node(); 
+                                                                      $$->setValue($1);
+                                                                      Delete(5, $1, $2, $3, $4, $5); 
+                                                                      sym.pop(); }
+            | IF MIF LPAREN Exp RPAREN Statement ELSE MELSE Statement { $$ = new Node();
                                                                       // TODO: check Exp type
-                                                                      //$$->m_type = types::Bool;
                                                                       $$->setType($5);
                                                                       $$->m_num_val = ($3->m_num_val != 0);
-                                                                      Delete(7, $3, $4, $5, $6, $7 $1, $2,); }
-            | WHILE LPAREN Exp RPAREN Statement                     {
-                                                                      $$ = new Node($1.m_name);
+                                                                      Delete(7, $1, $2, $3, $4, $5, $6, $7); 
+                                                                      sym.pop(); }
+            | WHILE MWHILE LPAREN Exp RPAREN Statement                { $$ = new Node($1->getName());
                                                                       $$->setType($5);
                                                                       // statement may contain return value
-                                                                      $$->setValue($1.m_string_val);
-                                                                      Delete(5,$1,$2,$3,$4,$5);
-                                                                    }
-            | BREAK SC                                              { $$ = new Node(); 
+                                                                      $$->setValue($1);
+                                                                      Delete(5, $1, $2, $3, $4, $5); 
+                                                                      sym.pop(); }
+            | BREAK SC                                              { $$ = new Node();
                                                                       // TODO: check that we are in a while loop
                                                                       Delete(2, $1, $2); }
-            | CONTINUE SC                                           {$$ = new Node($1.m_name);
+            | CONTINUE SC                                           { $$ = new Node($1->getName());
                                                                       $$->setType($1);
-                                                                      $$->setValue($1.m_string_val);
-                                                                      Delete(2, $1, $2);
-                                                                      }
+                                                                      $$->setValue($1);
+                                                                      Delete(2, $1, $2); }
 ; 
 Call: ID LPAREN ExpList RPAREN                                      { $$ = new Node($1->getName());
                                                                       // TODO: check that ExpList types and len matches ID
+                                                                      // TODO: check that if there is string in expList => id.name = print
+                                                                      SymTable::Entry entry = sym.find_entry($1->m_name);
+                                                                      if(entry == nullptr) {
+                                                                        errorUndefFunc(yylineno, $1->m_name);
+                                                                      }
+                                                                      $$->m_type = entry.return_type;
                                                                       $$->m_types_list = std::move($3->m_types_list);
-                                                                      Delete(4, $3, $4 $1, $2); }
+                                                                      Delete(4, $3, $4, $1, $2); }
     | ID LPAREN RPAREN                                              {
                                                                     //To think about - How we address return type
                                                                     //and arguments of func
                                                                     // is it needed in object itself?
-                                                                      $$ = new Node($1.m_name);
+                                                                      $$ = new Node($1->getName());
                                                                       //$$.m_type = types::Func;
-                                                                      $$->setType($1);
+                                                                      $$->setType($1);  // Need to check that ID doesn't take args
                                                                       // I saw we used type in exp Reduce so must be saved(?)
-                                                                      $$->setValue($1.m_value);
-                                                                      Delete(2, $3, $2);  
-                                                                    } %prec OR
+                                                                    //   $$->setValue($1->m_value);
+                                                                      SymTable::Entry entry = sym.find_entry($1->m_name);
+                                                                      if(entry == nullptr) {
+                                                                        errorUndefFunc(yylineno, $1->m_name);
+                                                                      }
+                                                                      $$->m_type = entry.return_type;
+                                                                      Delete(3, $1, $2, $3); } %prec OR
 ; 
 ExpList: Exp                                                        { $$ = $1; }
-    | Exp COMMA ExpList                                             {
-                                                                      $$ = new Node();
-                                                                      $$->setType($1);
-                                                                      $$->setValue($1.m_name + $3.m_string_val);
-                                                                      Delete(3, $1, $2,$3);
-                                                                      }
+    | Exp COMMA ExpList                                             { $$ = $1;
+                                                                      $$->m_types_list.insert($$->m_types_list.end(),
+                                                                                              $3->m_types_list.begin(),
+                                                                                              $3->m_types_list.end());
+                                                                    //   $$->setValue($1->m_name + $3->m_string_val);
+                                                                      Delete(2, $2, $3); }
 ; 
 Type: INT                                                           { $$ = $1; }
     | BYTE                                                          { $$ = $1; }
@@ -192,10 +204,9 @@ Exp : LPAREN Exp RPAREN                                             { $$ = $2; }
                                                                       $$->setType($1);     
                                                                      $$->setValue($1, $2, $3); 
                                                                       Delete(3, $1, $2, $3); }
-    | ID                                                            { $$ = new Node();
-                                                                      $$->setType($1);     
-                                                                      $$->m_name = $1->m_name; 
-                                                                      Delete(1, $1); }
+    | ID                                                            { $$ = $1;
+                                                                      // TODO: check that ID exists
+                                                                        }
     | Call                                                          { $$ = new Node();
                                                                       $$->setType($1);     
                                                                       Delete(1, $1); }
@@ -237,6 +248,12 @@ Exp : LPAREN Exp RPAREN                                             { $$ = $2; }
                                                                       $$->m_type = $2->m_type;
                                                                       $$->setValue($4);
                                                                       Delete(4, $1, $2, $3, $4); }
+;
+// open scope:
+M1 : { sym.push(); }
+MIF : { sym.push(SymTable::scope_type::IF); }
+MELSE : { sym.push(SymTable::scope_type::ELSE); }
+MWHILE : { sym.push(SymTable::scope_type::WHILE); }
 ;
 %%
 
