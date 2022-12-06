@@ -1,5 +1,4 @@
 #include "source.hpp"
-#include "hw3_output.hpp"
 
 void Delete(int count, ...)
 {
@@ -21,11 +20,11 @@ SymTable::SymTable()
     Scope scope(0);
     std::vector<types> v1 = {types::String};
     std::vector<types> v2 = {types::Int};
-    scope.entries.emplace_back("print", types::Void, v1, 0);
-    scope.entries.emplace_back("printi", types::Void, v2, 0);
+    scope.entries.emplace_back("print", types::Void, v1, true, 0);
+    scope.entries.emplace_back("printi", types::Void, v2, true, 0);
 }
 
-SymTable::Scope &SymTable::push(scope_type type = scope_type::BLOCK)
+SymTable::Scope &SymTable::push(scope_type type)
 {
     int offset = this->top().offset;
     scopes_stack.emplace_back(offset);
@@ -45,7 +44,9 @@ void SymTable::pop()
         }
         else
         {
-            std::string s = makeFunctionType(entry.return_type, TypesToStrings(entry.types_vec));
+            std::vector<std::string> strings_vec = TypesToStrings(entry.types_vec);
+            std::string string_type = TypeToString(entry.return_type);
+            std::string s = makeFunctionType(string_type, strings_vec);
             printID(entry.name, entry.offset, s);
         }
     }
@@ -81,7 +82,7 @@ void SymTable::insert_arg(Node *node)
         exit(0);
     }
     Entry entry = {node->m_name, node->m_type,
-                   node->m_types_list, top().min_arg_offset--};
+                   node->m_types_list, false, top().min_arg_offset--};
     this->top().entries.push_back(entry);
 }
 
@@ -102,28 +103,55 @@ SymTable::Entry *SymTable::find_entry(const std::string &name)
     return nullptr;
 }
 
-void SymTable::check_type(Node *node, SymTable::Entry *entry)
+void check_ret_type(Node *node, SymTable::Entry *entry)
 {
-    if (entry == nullptr)
-    {
-        entry = find_entry(node->m_name);
-    }
-    node->m_types_list;
-    entry->types_vec;
-    if (node->m_type != entry->return_type)
+    if (!allowed_implicit_assignment(node->m_type, entry->return_type))
     {
         errorMismatch(node->m_lineno);
         exit(0);
     }
-    assert(node->m_types_list.size() == entry->types_vec.size());
+}
+
+void check_args_type(Node *node, SymTable::Entry *entry)
+{
+    if (node->m_types_list.size() != entry->types_vec.size())
+    {
+        std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
+        errorPrototypeMismatch(node->m_lineno, node->m_name, strings_vec);
+        exit(0);
+    }
     for (int i = 0; i < node->m_types_list.size(); ++i)
     {
-        if (node->m_types_list[i] != entry->types_vec[i])
+        if (allowed_implicit_assignment(node->m_types_list[i], entry->types_vec[i]))
         {
-            errorPrototypeMismatch(node->m_lineno, node->m_name, TypesToString(entry->types_vec));
+            std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
+            errorPrototypeMismatch(node->m_lineno, node->m_name, strings_vec);
             exit(0);
         }
     }
+}
+
+bool allowed_implicit_assignment(types lhs, types rhs)
+{
+    return (lhs == rhs || (lhs == types::Int && rhs == types::Byte));
+}
+
+bool allowed_explicit_assignment(types lhs, Node *node)
+{
+    if (lhs == types::Int && node->m_type == types::Byte)
+    {
+        return true;
+    }
+    else if (lhs == types::Byte && node->m_type == types::Int)
+    {
+        if (node->m_num_val > BYTE_SIZE)
+        {
+            errorByteTooLarge(node->m_lineno, node->m_name);
+            exit(0);
+        }
+        return true;
+    }
+    return false;
 }
 
 std::string TypeToString(types type)

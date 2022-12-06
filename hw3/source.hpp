@@ -6,6 +6,9 @@
 #include <cstdarg>
 #include <cassert>
 
+#include "hw3_output.hpp"
+using namespace output;
+
 enum class types
 {
   None,
@@ -17,6 +20,8 @@ enum class types
   Void,
   Operator
 };
+
+const int BYTE_SIZE = 255;
 
 struct Node
 {
@@ -163,11 +168,12 @@ public:
   };
   struct Entry
   {
+    Entry(std::string name, types return_type, std::vector<types> types_vec, bool is_func, int offset) : name(name), return_type(return_type), types_vec(types_vec), is_func(is_func), offset(offset) {}
     std::string name;
     types return_type;
     std::vector<types> types_vec;
-    int offset;
     bool is_func;
+    int offset;
   };
   struct Scope
   {
@@ -189,11 +195,14 @@ public:
   void insert_arg(Node *node);
 
   Entry *find_entry(const std::string &name);
-  void check_type(Node *node, SymTable::Entry *entry);
 };
 
 std::string TypeToString(types type);
 std::vector<std::string> TypesToStrings(std::vector<types> &vec);
+bool allowed_implicit_assignment(types lhs, types rhs);
+bool allowed_explicit_assignment(types lhs, Node *node);
+void check_ret_type(Node *node, SymTable::Entry *entry);
+void check_args_type(Node *node, SymTable::Entry *entry);
 
 #define YYSTYPE Node *
 
