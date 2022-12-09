@@ -17,11 +17,13 @@ void Delete(int count, ...)
 
 SymTable::SymTable()
 {
+    has_main = false;
     Scope scope(0);
     std::vector<types> v1 = {types::String};
     std::vector<types> v2 = {types::Int};
     scope.entries.emplace_back("print", types::Void, v1, true, 0);
     scope.entries.emplace_back("printi", types::Void, v2, true, 0);
+    scopes_stack.push_back(scope);
 }
 
 SymTable::Scope &SymTable::push(scope_type type)
@@ -71,6 +73,7 @@ void SymTable::insert(Node *node, bool is_func)
                    is_func, top().offset};
     this->top().entries.push_back(entry);
     this->top().offset += is_func;
+    has_main |= (entry.name == "main");
 }
 
 void SymTable::insert_arg(Node *node)
@@ -88,7 +91,7 @@ void SymTable::insert_arg(Node *node)
 
 SymTable::Entry *SymTable::find_entry(const std::string &name)
 {
-    for (int scope_num = 0; scope_num < scopes_stack.size(); ++scope_num)
+    for (int scope_num = scopes_stack.size() - 1; scope_num >= 0; --scope_num)
     {
         Scope &scope = scopes_stack[scope_num];
         for (int entry_num = 0; entry_num < scope.entries.size(); ++entry_num)
@@ -101,6 +104,19 @@ SymTable::Entry *SymTable::find_entry(const std::string &name)
         }
     }
     return nullptr;
+}
+
+bool SymTable::isInScope(SymTable::scope_type scope_type)
+{
+    for (int scope_num = scopes_stack.size() - 1; scope_num >= 0; --scope_num)
+    {
+        Scope &scope = scopes_stack[scope_num];
+        if (scope.type == scope_type)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void check_ret_type(Node *node, SymTable::Entry *entry)
@@ -122,7 +138,7 @@ void check_args_type(Node *node, SymTable::Entry *entry)
     }
     for (int i = 0; i < node->m_types_list.size(); ++i)
     {
-        if (allowed_implicit_assignment(node->m_types_list[i], entry->types_vec[i]))
+        if (!allowed_implicit_assignment(node->m_types_list[i], entry->types_vec[i]))
         {
             std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
             errorPrototypeMismatch(node->m_lineno, node->m_name, strings_vec);
@@ -138,20 +154,11 @@ bool allowed_implicit_assignment(types lhs, types rhs)
 
 bool allowed_explicit_assignment(types lhs, Node *node)
 {
-    if (lhs == types::Int && node->m_type == types::Byte)
+    if ((lhs != types::Int && lhs != types::Byte) || (node->m_type != types::Byte && node->m_type != types::Int))
     {
-        return true;
+        return false;
     }
-    else if (lhs == types::Byte && node->m_type == types::Int)
-    {
-        if (node->m_num_val > BYTE_SIZE)
-        {
-            errorByteTooLarge(node->m_lineno, node->m_name);
-            exit(0);
-        }
-        return true;
-    }
-    return false;
+    return true;
 }
 
 std::string TypeToString(types type)

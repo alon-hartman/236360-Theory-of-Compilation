@@ -45,30 +45,39 @@
 %nonassoc ELSE
 
 %%
-Program: M1 Funcs                                                   { $$ = $2; }
-; 
-Funcs: FuncDecl Funcs                                               { $$ = new Node("", yylineno);
-                                                                      $$->setType($2);
-                                                                      $$->SetValue($1->m_string_val+$2->m_string_val);
-                                                                      Delete(2, $1, $2); }
-       | /*epsilon*/                                                { $$ = new Node("", yylineno); }
+Program: M1 Funcs                               { $$ = $2;
+                                                  if(!sym.has_main) {
+                                                    errorMainMissing();
+                                                    exit(0);
+                                                  }
+                                                  sym.pop(); }
+
+Funcs: FuncDecl Funcs                           { $$ = new Node("", yylineno);
+                                                  $$->setType($2);
+                                                  $$->SetValue($1->m_string_val+$2->m_string_val);
+                                                  Delete(2, $1, $2); }
+       | /*epsilon*/                            { $$ = new Node("", yylineno); }
 ;
 FuncDecl: RetType ID LPAREN Formals RPAREN 
-          { sym.push(SymTable::scope_type::FUNC);
+        { sym.push(SymTable::scope_type::FUNC);
           Node node($2->getName(), yylineno);
           node.m_type = $1->m_type;
           node.m_types_list = $4->m_types_list;
-          sym.insert(&node, true); }
-          LBRACE Statements RBRACE                                    { if(!allowed_implicit_assignment($1->m_type, $8->m_type)) {
-                                                                            errorMismatch(yylineno);
-                                                                            exit(0);
-                                                                         }
-                                                                         $$ = new Node($2->getName(), yylineno);
-                                                                         $$->setType($1);
-                                                                         $$->setValue($2);
-                                                                         $$->m_types_list = std::move($4->m_types_list);
-                                                                         Delete(8, $1, $2, $3, $4, $5, $6, $7, $8);
-                                                                         sym.pop(); }
+          sym.insert(&node, true); // inserts function into scope
+          if($2->m_name == "main" && $1->m_type != types::Void && $4->m_types_list.size() != 0) {
+              errorMismatch(yylineno);
+              exit(0);
+          } }
+          LBRACE Statements RBRACE       { if(!allowed_implicit_assignment($1->m_type, $7->m_type)) {
+                                            errorMismatch(yylineno);
+                                            exit(0);
+                                         }
+                                         $$ = new Node($2->getName(), yylineno);
+                                         $$->setType($1);
+                                         $$->setValue($2);
+                                         $$->m_types_list = std::move($4->m_types_list);
+                                         Delete(8, $1, $2, $3, $4, $5, $6, $7, $8);
+                                         sym.pop(); }
 ;
 /* M2 : { sym.push(SymTable::scope_type::FUNC);
        Node node($2.getName(), yylineno);
@@ -177,10 +186,17 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                                                       $$->setValue($1);
                                                                       Delete(5, $1, $6, $3, $4, $5); 
                                                                       sym.pop(); }
-            | BREAK SC            { $$ = new Node("", yylineno);
-                                    // TODO: check that we are in a while loop
+            | BREAK SC            { if(!sym.isInScope(SymTable::scope_type::WHILE)) {
+                                      errorUnexpectedBreak(yylineno);
+                                      exit(0);
+                                    }
+                                    $$ = new Node("", yylineno);
                                     Delete(2, $1, $2); }
-            | CONTINUE SC         { $$ = new Node($1->getName(), yylineno);
+            | CONTINUE SC         { if(!sym.isInScope(SymTable::scope_type::WHILE)) {
+                                      errorUnexpectedContinue(yylineno);
+                                      exit(0);
+                                    }
+                                    $$ = new Node($1->getName(), yylineno);
                                     $$->setType($1);
                                     $$->setValue($1);
                                     Delete(2, $1, $2); }
@@ -196,20 +212,20 @@ Call: ID LPAREN ExpList RPAREN    { // TODO: check that if there is string in ex
                                     $$->m_type = entry->return_type;
                                     $$->m_types_list = std::move($3->m_types_list);
                                     Delete(4, $3, $4, $1, $2); }
-    | ID LPAREN RPAREN              { SymTable::Entry *entry = sym.find_entry($1->m_name);
-                                      if(entry == nullptr) {
-                                        errorUndefFunc(yylineno, $1->m_name);
-                                        exit(0);
-                                      }
-                                      if(entry->types_vec.size() != 0) {
-                                        std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
-                                        errorPrototypeMismatch(yylineno, entry->name, strings_vec);
-                                        exit(0);
-                                      }
-                                      $$ = new Node($1->getName(), yylineno);
-                                      $$->setType($1);  // Need to check that ID doesn't take args
-                                      $$->m_type = entry->return_type;
-                                      Delete(3, $1, $2, $3); } %prec OR
+    | ID LPAREN RPAREN            { SymTable::Entry *entry = sym.find_entry($1->m_name);
+                                    if(entry == nullptr) {
+                                      errorUndefFunc(yylineno, $1->m_name);
+                                      exit(0);
+                                    }
+                                    if(entry->types_vec.size() != 0) {
+                                      std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
+                                      errorPrototypeMismatch(yylineno, entry->name, strings_vec);
+                                      exit(0);
+                                    }
+                                    $$ = new Node($1->getName(), yylineno);
+                                    $$->setType($1);  // Need to check that ID doesn't take args
+                                    $$->m_type = entry->return_type;
+                                    Delete(3, $1, $2, $3); } %prec OR
 ; 
 ExpList: Exp                                                        { $$ = $1; }
     | Exp COMMA ExpList                                             { $$ = $1;
@@ -237,13 +253,27 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
                                                         $$->m_type = types::Int;
                                                       }
                                                       Delete(7, $1, $2, $3, $4, $5, $6, $7); }
-    | Exp ADDITIVE Exp                    { $$ = new Node("", yylineno);
+    | Exp ADDITIVE Exp                    { if(!$1->isNumType() || !$3->isNumType()) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
                                             $$->setType($1);
+                                            if($1->m_type == types::Int || $3->m_type == types::Int) {
+                                              $$->m_type = types::Int;  // result has bigger type
+                                            }
                                             $$->setValue($1, $2, $3);
                                             Delete(3, $1, $2, $3);}
-    | Exp MULTIPLICATIVE Exp              { $$ = new Node("", yylineno);
-                                            $$->setType($1);     
-                                           $$->setValue($1, $2, $3); 
+    | Exp MULTIPLICATIVE Exp              { if(!$1->isNumType() || !$3->isNumType()) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
+                                            $$->setType($1);
+                                            if($1->m_type == types::Int || $3->m_type == types::Int) {
+                                              $$->m_type = types::Int;  // result has bigger type
+                                            }
+                                            $$->setValue($1, $2, $3); 
                                             Delete(3, $1, $2, $3); }
     | ID                                  { $$ = $1;
                                             if(!sym.find_entry($1->m_name)) {
@@ -253,7 +283,11 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
                                             $$->setType($1);     
                                             Delete(1, $1); }
     | NUM                                 { $$ = $1; }
-    | NUM B                               { $$ = new ByteType("", yylineno);
+    | NUM B                               { if($1->m_num_val > BYTE_SIZE) {
+                                              errorByteTooLarge(yylineno, $1->m_name);
+                                              exit(0);
+                                            }
+                                            $$ = new ByteType("", yylineno);
                                             $$->m_type == types::Byte;
                                             $$->m_num_val = $1->m_num_val; 
                                             Delete(2, $1, $2); }
@@ -266,23 +300,43 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
                                             $$->m_type = types::Bool;
                                             $$->m_num_val = 0; 
                                             Delete(1, $1); }
-    | NOT Exp                             { $$ = new Node("", yylineno);
+    | NOT Exp                             { if(($2->m_type != types::Bool)) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
                                             $$->m_type = types::Bool; 
                                             $$->m_num_val = !($2->m_num_val);
                                             Delete(2, $1, $2); }
-    | Exp AND Exp                         { $$ = new Node("", yylineno);
+    | Exp AND Exp                         { if(($1->m_type != types::Bool) || ($3->m_type != types::Bool)) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
                                             $$->m_type = types::Bool;
                                             $$->setValue($1, $2, $3);
                                             Delete(3, $1, $2, $3); }
-    | Exp OR Exp                          { $$ = new Node("", yylineno);
+    | Exp OR Exp                          { if(($1->m_type != types::Bool) || ($3->m_type != types::Bool)) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
                                             $$->m_type = types::Bool;
                                             $$->setValue($1, $2, $3);
                                             Delete(3, $1, $2, $3); }
-    | Exp EQUALITY Exp                    { $$ = new Node("", yylineno);
+    | Exp EQUALITY Exp                    { if(!($1->isNumType()) || !($3->isNumType())) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
                                             $$->m_type = types::Bool;
                                             $$->setValue($1, $2, $3);
                                             Delete(3, $1, $2, $3); }
-    | Exp RELATIONAL Exp                  { $$ = new Node("", yylineno);
+    | Exp RELATIONAL Exp                  { if(!($1->isNumType()) || !($3->isNumType())) {
+                                              errorMismatch(yylineno);
+                                              exit(0);
+                                            }
+                                            $$ = new Node("", yylineno);
                                             $$->m_type = types::Bool;
                                             $$->setValue($1, $2, $3);
                                             Delete(3, $1, $2, $3); }

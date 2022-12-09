@@ -92,6 +92,11 @@ struct Node
   {
     m_string_val = string_val;
   }
+
+  bool isNumType()
+  {
+    return ((m_type == types::Int) || (m_type == types::Byte));
+  }
 };
 
 struct Num : public Node
@@ -184,6 +189,7 @@ public:
     Scope(int offset) : entries(), offset(offset), min_arg_offset(-1), type(scope_type::BLOCK) {}
   };
   std::vector<Scope> scopes_stack;
+  bool has_main;
 
   SymTable();
   Scope &push(scope_type type = scope_type::BLOCK);
@@ -195,6 +201,7 @@ public:
   void insert_arg(Node *node);
 
   Entry *find_entry(const std::string &name);
+  bool isInScope(SymTable::scope_type scope_type);
 };
 
 std::string TypeToString(types type);
