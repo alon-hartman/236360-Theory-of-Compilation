@@ -68,24 +68,12 @@ FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAR
               errorMainMissing();
               exit(0);
           } }
-          LBRACE Statements RBRACE       { /*if(!allowed_implicit_assignment($1->m_type, $8->m_type)) {
-                                            std::cout << "$1->m_type: " << TypeToString($1->m_type);
-                                            std::cout << "$8->m_type: " << TypeToString($8->m_type);
-                                            errorMismatch(yylineno);
-                                            exit(0);
-                                         }*/
-                                         $$ = new Node($2->getName(), yylineno);
+          LBRACE Statements RBRACE     { $$ = new Node($2->getName(), yylineno);
                                          $$->setType($1);
                                          $$->setValue($2);
                                          $$->m_types_list = std::move($5->m_types_list);
                                          Delete(8, $1, $2, $3, $5, $6, $8, $9, $10);
                                          sym.pop(); }
-;
-/* M2 : { sym.push(SymTable::scope_type::FUNC);
-       Node node($2.getName(), yylineno);
-       node.m_type = $1->m_type;
-       node.m_types_list = $4->m_types_list;
-       sym.insert(&node, true); } */
 ;
 RetType: Type                                                       { $$ = $1; }
         | VOID                                                      { $$ = $1; }
@@ -95,7 +83,6 @@ Formals: FormalsList                                                { $$ = $1; }
 ; 
 FormalsList: FormalDecl                                             { $$ = $1; }
         | FormalDecl COMMA FormalsList                              { $$ = $1;
-                                                                      // TODO: check types in FormalsList
                                                                       $$->m_types_list.insert($$->m_types_list.end(),
                                                                                               $3->m_types_list.begin(),
                                                                                               $3->m_types_list.end());
@@ -108,11 +95,7 @@ FormalDecl: Type ID                                                 { $$ = new N
                                                                       sym.insert_arg($$); }
 ; 
 Statements: Statement                                               { $$ = $1; }
-            | Statements Statement                                  {
-                                                                    // Both statement and statements
-                                                                    // are biggest variables of unimportant type 
-                                                                    // because program consists of statements
-                                                                      $$ = $1;
+            | Statements Statement                                  { $$ = $1;
                                                                       $$->m_types_list.push_back($2->m_type);
                                                                       Delete(1, $2); }
 ; 
@@ -180,12 +163,7 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                                                         errorMismatch(yylineno);
                                                                         exit(0);
                                                                       }
-                                                                      // if(!allowed_implicit_assignment($6->m_type, $9->m_type)) {
-                                                                      //   errorMismatch(yylineno);
-                                                                      //   exit(0);
-                                                                      // }
                                                                       $$ = new Node("", yylineno);
-                                                                      // TODO: check Exp type
                                                                       $$->setType($6);
                                                                       $$->m_num_val = ($4->m_num_val != 0);
                                                                       Delete(7, $1, $3, $4, $5, $6, $7, $9); 
