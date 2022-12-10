@@ -40,7 +40,7 @@ void SymTable::pop()
     Scope &scope = scopes_stack.back();
     for (auto entry : scope.entries)
     {
-        if (entry.is_func)
+        if (!entry.is_func)
         {
             printID(entry.name, entry.offset, TypeToString(entry.return_type));
         }
@@ -71,8 +71,15 @@ void SymTable::insert(Node *node, bool is_func)
     Entry entry = {node->m_name, node->m_type,
                    node->m_types_list,
                    is_func, top().offset};
-    this->top().entries.push_back(entry);
-    this->top().offset += is_func;
+    if (is_func)
+    {
+        this->scopes_stack[0].entries.push_back(entry);
+    }
+    else
+    {
+        this->top().entries.push_back(entry);
+    }
+    this->top().offset += !is_func;
     has_main |= (entry.name == "main");
 }
 
@@ -133,7 +140,7 @@ void check_args_type(Node *node, SymTable::Entry *entry)
     if (node->m_types_list.size() != entry->types_vec.size())
     {
         std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
-        errorPrototypeMismatch(node->m_lineno, node->m_name, strings_vec);
+        errorPrototypeMismatch(node->m_lineno, entry->name, strings_vec);
         exit(0);
     }
     for (int i = 0; i < node->m_types_list.size(); ++i)
@@ -141,7 +148,7 @@ void check_args_type(Node *node, SymTable::Entry *entry)
         if (!allowed_implicit_assignment(node->m_types_list[i], entry->types_vec[i]))
         {
             std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
-            errorPrototypeMismatch(node->m_lineno, node->m_name, strings_vec);
+            errorPrototypeMismatch(node->m_lineno, entry->name, strings_vec);
             exit(0);
         }
     }

@@ -25,7 +25,7 @@ const int BYTE_SIZE = 255;
 
 struct Node
 {
-  Node(const char *yytext = "", int yylineno = -1) : m_type(types::None), m_name(yytext), m_lineno(yylineno) {}
+  Node(const char *yytext = "", int yylineno = -1) : m_type(types::Void), m_name(yytext), m_lineno(yylineno) {}
   virtual ~Node() {}
   types m_type;
   std::string m_name;
@@ -104,6 +104,7 @@ struct Num : public Node
   Num(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
   {
     m_num_val = std::stoi(yytext);
+    m_type = types::Int;
   }
   ~Num() {}
 };
