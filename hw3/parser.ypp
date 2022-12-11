@@ -64,7 +64,6 @@ FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAR
           node.m_types_list = $5->m_types_list;
           sym.insert(&node, true); // inserts function into scope
           if($2->m_name == "main" && $1->m_type != types::Void && $5->m_types_list.size() != 0) {
-              // errorMismatch(yylineno);
               errorMainMissing();
               exit(0);
           } }
@@ -119,9 +118,11 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
             | ID ASSIGN Exp SC          { SymTable::Entry *entry = sym.find_entry($1->m_name);
                                           if(entry == nullptr) {
                                             errorUndef(yylineno, $1->m_name);
+                                            exit(0);
                                           }
                                           if(!allowed_implicit_assignment(entry->return_type, $3->m_type)) {
                                             errorMismatch(yylineno);
+                                            exit(0);
                                           }
                                           $$ = new Node($1->getName(), yylineno);
                                           $$->setValue($3);
@@ -218,14 +219,14 @@ Call: ID LPAREN ExpList RPAREN    { // TODO: check that if there is string in ex
                                     $$->m_type = entry->return_type;
                                     Delete(3, $1, $2, $3); } %prec OR
 ; 
-ExpList: Exp                                                        { $$ = $1;
-                                                                      $$->m_types_list.push_back($$->m_type); }
-    | Exp COMMA ExpList                                             { $$ = $1;
-                                                                      $$->m_types_list.insert($$->m_types_list.end(),
-                                                                                              $3->m_types_list.begin(),
-                                                                                              $3->m_types_list.end());
-                                                                    //   $$->setValue($1->m_name + $3->m_string_val);
-                                                                      Delete(2, $2, $3); }
+ExpList: Exp                        { $$ = $1;
+                                      $$->m_types_list.push_back($$->m_type); }
+    | Exp COMMA ExpList             { $$ = $1;
+                                      $$->m_types_list.push_back($$->m_type);
+                                      $$->m_types_list.insert($$->m_types_list.end(),
+                                                              $3->m_types_list.begin(),
+                                                              $3->m_types_list.end());
+                                      Delete(2, $2, $3); }
 ; 
 Type: INT                                 { $$ = $1; }
     | BYTE                                { $$ = $1; }
@@ -337,6 +338,7 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
                                             Delete(3, $1, $2, $3); }
     | LPAREN Type RPAREN Exp              { if(!allowed_explicit_assignment($2->m_type, $4)) {
                                               errorMismatch(yylineno);
+                                              exit(0);
                                             }
                                             $$ = new Node($4->m_name.c_str(), yylineno);
                                             $$->m_type = $2->m_type;

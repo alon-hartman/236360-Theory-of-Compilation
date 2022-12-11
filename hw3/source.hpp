@@ -209,7 +209,6 @@ std::string TypeToString(types type);
 std::vector<std::string> TypesToStrings(std::vector<types> &vec);
 bool allowed_implicit_assignment(types lhs, types rhs);
 bool allowed_explicit_assignment(types lhs, Node *node);
-void check_ret_type(Node *node, SymTable::Entry *entry);
 void check_args_type(Node *node, SymTable::Entry *entry);
 
 #define YYSTYPE Node *

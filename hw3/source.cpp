@@ -126,15 +126,6 @@ bool SymTable::isInScope(SymTable::scope_type scope_type)
     return false;
 }
 
-void check_ret_type(Node *node, SymTable::Entry *entry)
-{
-    if (!allowed_implicit_assignment(node->m_type, entry->return_type))
-    {
-        errorMismatch(node->m_lineno);
-        exit(0);
-    }
-}
-
 void check_args_type(Node *node, SymTable::Entry *entry)
 {
     if (node->m_types_list.size() != entry->types_vec.size())
@@ -144,8 +135,8 @@ void check_args_type(Node *node, SymTable::Entry *entry)
         exit(0);
     }
     for (int i = 0; i < node->m_types_list.size(); ++i)
-    {
-        if (!allowed_implicit_assignment(node->m_types_list[i], entry->types_vec[i]))
+    { // can the passed type be converted to the declared type?
+        if (!allowed_implicit_assignment(entry->types_vec[i], node->m_types_list[i]))
         {
             std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
             errorPrototypeMismatch(node->m_lineno, entry->name, strings_vec);
