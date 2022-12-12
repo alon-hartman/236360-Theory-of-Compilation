@@ -62,17 +62,17 @@ FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAR
         { Node node($2->getName(), yylineno);
           node.m_type = $1->m_type;
           node.m_types_list = $5->m_types_list;
-          sym.insert(&node, true); // inserts function into scope
-          if($2->m_name == "main" && $1->m_type != types::Void && $5->m_types_list.size() != 0) {
-              errorMainMissing();
-              exit(0);
-          } }
+          sym.insert(&node, true); } // inserts function into scope
           LBRACE Statements RBRACE     { $$ = new Node($2->getName(), yylineno);
                                          $$->setType($1);
                                          $$->setValue($2);
                                          $$->m_types_list = std::move($5->m_types_list);
-                                         Delete(8, $1, $2, $3, $5, $6, $8, $9, $10);
-                                         sym.pop(); }
+                                         sym.pop();
+                                         if($2->m_name == "main" && ($1->m_type != types::Void || $$->m_types_list.size() != 0)) {
+                                             errorMainMissing();
+                                             exit(0);
+                                         }
+                                         Delete(8, $1, $2, $3, $5, $6, $8, $9, $10); }
 ;
 RetType: Type                                                       { $$ = $1; }
         | VOID                                                      { $$ = $1; }
@@ -142,7 +142,8 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                           $$->setValue($1);
                                           Delete(2, $1, $2); }
             | RETURN Exp SC             { SymTable::Entry &curr_func = sym.scopes_stack[0].entries.back();
-                                          if(!allowed_implicit_assignment(curr_func.return_type, $2->m_type)) {
+                                          if(curr_func.return_type == types::Void || 
+                                             !allowed_implicit_assignment(curr_func.return_type, $2->m_type)) {
                                             errorMismatch(yylineno);
                                             exit(0);
                                           }
@@ -151,7 +152,7 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                           $$->setValue($2);
                                           Delete(3, $1, $2, $3); }
             | IF MIF LPAREN Exp RPAREN Statement                    { if($4->m_type != types::Bool) {
-                                                                        errorMismatch(yylineno);
+                                                                        errorMismatch($4->m_lineno);
                                                                         exit(0);
                                                                       }
                                                                       $$ = new Node($1->getName(), yylineno);
@@ -161,7 +162,7 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                                                       sym.pop(); }
             | IF MIF LPAREN Exp RPAREN Statement ELSE MELSE Statement { 
                                                                       if(!($4->m_type == types::Bool)) {
-                                                                        errorMismatch(yylineno);
+                                                                        errorMismatch($4->m_lineno);
                                                                         exit(0);
                                                                       }
                                                                       $$ = new Node("", yylineno);
@@ -171,7 +172,7 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                                                       sym.pop(); }
             | WHILE MWHILE LPAREN Exp RPAREN Statement                { 
                                                                       if(!($4->m_type == types::Bool)) {
-                                                                        errorMismatch(yylineno);
+                                                                        errorMismatch($4->m_lineno);
                                                                         exit(0);
                                                                       }
                                                                       $$ = new Node($1->getName(), yylineno);
@@ -194,8 +195,7 @@ Statement: LBRACE M1 Statements RBRACE  { $$ = $3;
                                     $$->setValue($1);
                                     Delete(2, $1, $2); }
 ; 
-Call: ID LPAREN ExpList RPAREN    { // TODO: check that if there is string in expList => id.name = print
-                                    SymTable::Entry *entry = sym.find_entry($1->m_name);
+Call: ID LPAREN ExpList RPAREN    { SymTable::Entry *entry = sym.find_entry($1->m_name);
                                     if(entry == nullptr) {
                                       errorUndefFunc(yylineno, $1->m_name);
                                       exit(0);

@@ -80,7 +80,7 @@ void SymTable::insert(Node *node, bool is_func)
         this->top().entries.push_back(entry);
     }
     this->top().offset += !is_func;
-    has_main |= (entry.name == "main");
+    has_main |= (is_func && entry.name == "main");
 }
 
 void SymTable::insert_arg(Node *node)
