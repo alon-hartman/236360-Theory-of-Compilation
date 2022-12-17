@@ -27,9 +27,11 @@
 *.zip
 *.tar.gz
 *.in
-hw1/examples/*
-hw2/examples/*
+*/examples/*
 *.tab.*
 *.yy.c
 *.output
+*test*
+*.png
+.vscode
 # End
