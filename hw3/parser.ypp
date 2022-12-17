@@ -36,7 +36,7 @@
 %left OR
 %left AND
 %left EQUALITY
-%right RELATIONAL
+%left RELATIONAL
 %left ADDITIVE
 %left MULTIPLICATIVE
 %nonassoc NOT
