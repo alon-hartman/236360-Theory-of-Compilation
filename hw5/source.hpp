@@ -7,6 +7,7 @@
 #include <cassert>
 
 #include "hw3_output.hpp"
+#include "bp.hpp"
 using namespace output;
 
 enum class types
@@ -23,13 +24,18 @@ const int BYTE_SIZE = 255;
 
 struct Node
 {
-  Node(const char *yytext = "", int yylineno = -1) : m_type(types::Void), m_name(yytext), m_lineno(yylineno) {}
+  Node(const char *yytext = "", int yylineno = -1) : m_type(types::Void), m_name(yytext), m_lineno(yylineno), m_reg(""), m_val(0) {}
   virtual ~Node() {}
   types m_type;
-  std::string m_name;
+  string m_name;
   int m_lineno;
+  string m_reg;
+  int m_val;
+  vector<pair<int, BranchLabelIndex>> true_list;
+  vector<pair<int, BranchLabelIndex>> false_list;
+  string m_label;
 
-  std::vector<types> m_types_list;
+  vector<types> m_types_list;
 
   virtual void setName(Node *other)
   {
