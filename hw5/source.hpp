@@ -64,10 +64,11 @@ struct Node
 
 struct Num : public Node
 {
-  Num(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
+  Num(const char *yytext = "", int yylineno = -1, bool eval = true) : Node(yytext, yylineno)
   {
     m_type = types::Int;
-    m_val = std::stoi(m_name);
+    if (eval)
+      m_val = std::stoi(m_name);
   }
   ~Num() {}
   std::string getReg() override
@@ -90,7 +91,7 @@ struct VoidType : public Node
 
 struct ByteType : public Num
 {
-  ByteType(const char *yytext = "", int yylineno = -1) : Num(yytext, yylineno)
+  ByteType(const char *yytext = "", int yylineno = -1, bool eval = true) : Num(yytext, yylineno, eval)
   {
     m_type = types::Byte;
     if (m_val > BYTE_SIZE)
@@ -163,6 +164,7 @@ public:
   };
   std::vector<Scope> scopes_stack;
   bool has_main;
+  std::string curr_func_ptr;
 
   SymTable();
   Scope &push(scope_type type = scope_type::BLOCK);
@@ -178,7 +180,9 @@ public:
 };
 
 std::string TypeToString(types type);
+std::string TypeToIRString(types type);
 std::vector<std::string> TypesToStrings(std::vector<types> &vec);
+std::string TypesToIRString(std::vector<types> &vec);
 bool allowed_implicit_assignment(types lhs, types rhs);
 bool allowed_explicit_assignment(types lhs, Node *node);
 void check_args_type(Node *node, SymTable::Entry *entry);

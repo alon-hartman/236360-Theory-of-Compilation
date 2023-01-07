@@ -19,4 +19,6 @@ void emitBooleanBlockShortCircuit(Node *lhs, Node *rhs, string op, Node *res);
 
 void emitLabelAndGoto(Node *res, std::vector<std::pair<int, BranchLabelIndex>> &list);
 
+std::string openFunctionStack(Node *retType, Node *id, Node *formals);
+
 #endif

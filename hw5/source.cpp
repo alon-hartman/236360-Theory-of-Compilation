@@ -1,4 +1,5 @@
 #include "source.hpp"
+#include <sstream>
 
 void Delete(int count, ...)
 {
@@ -178,6 +179,23 @@ std::string TypeToString(types type)
     };
 }
 
+std::string TypeToIRString(types type)
+{
+    switch (type)
+    {
+    case types::Bool:
+        return "i1";
+    case types::Byte:
+        return "i8";
+    case types::Int:
+        return "i32";
+    case types::Void:
+        return "void";
+    default:
+        return ":(";
+    };
+}
+
 std::vector<std::string> TypesToStrings(std::vector<types> &vec)
 {
     std::vector<std::string> res;
@@ -186,4 +204,14 @@ std::vector<std::string> TypesToStrings(std::vector<types> &vec)
         res.push_back(TypeToString(vec[i]));
     }
     return res;
+}
+
+std::string TypesToIRString(std::vector<types> &vec)
+{
+    std::ostringstream res("");
+    for (int i = 0; i < vec.size(); ++i)
+    {
+        res << TypeToIRString(vec[i]) << (i == vec.size() - 1 ? "" : ", ");
+    }
+    return res.str();
 }

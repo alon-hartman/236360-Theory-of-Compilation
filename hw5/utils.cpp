@@ -120,13 +120,8 @@ void emitBooleanBlockRelaEq(Node *lhs, Node *rhs, string op, Node *res)
     int address = cb.emit("br i1 " + res->m_reg + ", label @, label @");
     res->true_list = cb.makelist({address, FIRST});
     res->false_list = cb.makelist({address, SECOND});
-    // res->true_list = cb.merge(res->true_list, lhs->true_list);
-    // res->false_list = cb.merge(res->false_list, rhs->false_list);
 }
-/*
-l1: t3 = icmp eq i32 t1, t2
-br i1 t3 @, @
-*/
+
 void emitBooleanBlockShortCircuit(Node *lhs, Node *rhs, string op, Node *res)
 {
     CodeBuffer &cb = CodeBuffer::instance();
@@ -134,13 +129,13 @@ void emitBooleanBlockShortCircuit(Node *lhs, Node *rhs, string op, Node *res)
     if (op == "OR")
     {
         cb.bpatch(lhs->false_list, rhs->m_label);
-        res->false_list = rhs->false_list;
+        res->false_list = std::move(rhs->false_list);
         res->true_list = cb.merge(lhs->true_list, rhs->true_list);
     }
     else if (op == "AND")
     {
         cb.bpatch(lhs->true_list, rhs->m_label);
-        res->true_list = rhs->true_list;
+        res->true_list = std::move(rhs->true_list);
         res->false_list = cb.merge(lhs->false_list, rhs->false_list);
     }
     else
@@ -156,4 +151,15 @@ void emitLabelAndGoto(Node *res, std::vector<std::pair<int, BranchLabelIndex>> &
     res->m_label = cb.genLabel();
     int address = cb.emit("br label @");
     list.push_back({address, FIRST});
+}
+
+std::string openFunctionStack(Node *retType, Node *id, Node *formals)
+{
+    Allocator &allocator = Allocator::getInstance();
+    CodeBuffer &cb = CodeBuffer::instance();
+    std::string stack_reg = allocator.fresh_var("stackReg");
+
+    cb.emit("define " + TypeToIRString(retType->m_type) + " @" +
+            id->m_name + "(" + TypesToIRString(formals->m_types_list) + ") {");
+    return stack_reg;
 }
