@@ -313,7 +313,7 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
     if($1->m_type == types::Int || $3->m_type == types::Int) {
       $$->m_type = types::Int;  // result has bigger type
     }
-    $$->m_reg = emitBinopRes($1, $3, $2->m_name);
+    emitBinopRes($1, $3, $2->m_name, $$);
     Delete(3, $1, $2, $3);
 }
     | Exp MULTIPLICATIVE Exp
@@ -327,7 +327,7 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   if($1->m_type == types::Int || $3->m_type == types::Int) {
     $$->m_type = types::Int;  // result has bigger type
   }
-  $$->m_reg = emitBinopRes($1, $3, $2->m_name);
+  emitBinopRes($1, $3, $2->m_name, $$);
   Delete(3, $1, $2, $3);
 }
     | ID
@@ -349,19 +349,10 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
     | NUM
 { 
   $$ = $1;
-  $$->m_val = std::stoi($1->m_name);
-  $$->m_reg = emitOperator(0, $$->m_val, "add");
 }
     | NUM B
 { 
-  if(std::stoi($1->m_name) > BYTE_SIZE) {
-    errorByteTooLarge(yylineno, $1->m_name);
-    exit(0);
-  }
-  $$ = new ByteType("", yylineno);
-  $$->m_type == types::Byte;
-  $$->m_val = std::stoi($1->m_name);
-  $$->m_reg = emitOperator(0, $$->m_val, "add", "i8");
+  $$ = new ByteType(($1->m_name).c_str(), yylineno);
   Delete(2, $1, $2);
 }
     | STRING
@@ -372,14 +363,14 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
 { 
   $$ = new Node("", yylineno);
   $$->m_type = types::Bool;
-  $$->m_reg = emitOperator(1, 0, "add", "i8");
+  emitLabelAndGoto($$, $$->true_list);
   Delete(1, $1);
 }
     | FALSE
 { 
   $$ =new Node("", yylineno);
   $$->m_type = types::Bool;
-  $$->m_reg = emitOperator(0, 0, "add", "i8");
+  emitLabelAndGoto($$, $$->false_list);
   Delete(1, $1); 
 }
     | NOT Exp
@@ -402,6 +393,7 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   }
   $$ = new Node("", yylineno);
   $$->m_type = types::Bool;
+  emitBooleanBlockShortCircuit($1, $3, "AND", $$);
   Delete(3, $1, $2, $3);
 }
     | Exp OR Exp
@@ -412,6 +404,7 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   }
   $$ = new Node("", yylineno);
   $$->m_type = types::Bool;
+  emitBooleanBlockShortCircuit($1, $3, "OR", $$);
   Delete(3, $1, $2, $3);
 }
     | Exp EQUALITY Exp

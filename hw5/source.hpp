@@ -8,6 +8,7 @@
 
 #include "hw3_output.hpp"
 #include "bp.hpp"
+#include "utils.hpp"
 using namespace output;
 
 enum class types
@@ -54,6 +55,11 @@ struct Node
   {
     return ((m_type == types::Int) || (m_type == types::Byte));
   }
+
+  virtual std::string getReg()
+  {
+    return m_reg;
+  }
 };
 
 struct Num : public Node
@@ -61,8 +67,14 @@ struct Num : public Node
   Num(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
   {
     m_type = types::Int;
+    m_val = std::stoi(m_name);
   }
   ~Num() {}
+  std::string getReg() override
+  {
+    m_reg = emitOperator(0, m_val, "add");
+    return m_reg;
+  }
 };
 struct IntType : public Node
 {
@@ -76,10 +88,23 @@ struct VoidType : public Node
   ~VoidType() {}
 };
 
-struct ByteType : public Node
+struct ByteType : public Num
 {
-  ByteType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Byte; }
+  ByteType(const char *yytext = "", int yylineno = -1) : Num(yytext, yylineno)
+  {
+    m_type = types::Byte;
+    if (m_val > BYTE_SIZE)
+    {
+      errorByteTooLarge(yylineno, m_name);
+      exit(0);
+    }
+  }
   ~ByteType() {}
+  std::string getReg() override
+  {
+    m_reg = emitOperator(0, m_val, "add", "i8");
+    return m_reg;
+  }
 };
 
 struct BoolType : public Node
