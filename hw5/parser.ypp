@@ -74,11 +74,13 @@ Funcs: FuncDecl Funcs
   $$ = new Node("", yylineno); 
 }
 ;
-FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAREN 
-        { Node node($2->getName(), yylineno);
-          node.m_type = $1->m_type;
-          node.m_types_list = $5->m_types_list;
-          sym.insert(&node, true); } // inserts function into scope
+FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAREN
+          { Node node($2->getName(), yylineno);
+            node.m_type = $1->m_type;
+            node.m_types_list = $5->m_types_list;
+            sym.insert(&node, true);  // inserts function into scope
+            sym.curr_func_ptr = openFunctionStack($1, $2, $5);
+          }
           LBRACE Statements RBRACE     
 { 
   $$ = new Node($2->getName(), yylineno);
@@ -89,6 +91,9 @@ FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAR
     errorDef($2->m_lineno, $2->m_name);
     exit(0);
   }
+  CodeBuffer::instance().emit("}");
+  /* TODO: handle assings to function variables and reads from variables
+  */
   Delete(8, $1, $2, $3, $5, $6, $8, $9, $10); 
 }
 ;

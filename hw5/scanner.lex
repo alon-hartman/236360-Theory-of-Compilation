@@ -20,8 +20,8 @@ inequality      (<|>|<=|>=)
 %%
 void                                { yylval = new VoidType(yytext, yylineno); return VOID;}
 int                                 { yylval = new IntType(yytext, yylineno); return INT; }
-byte                                { yylval = new ByteType(yytext, yylineno); return BYTE; }
-b                                   { yylval = new ByteType(yytext, yylineno); return B; }
+byte                                { yylval = new ByteType(yytext, yylineno, false); return BYTE; }
+b                                   { yylval = new Node(yytext, yylineno); return B; }
 bool                                { yylval = new BoolType(yytext, yylineno); return BOOL; }
 and                                 { yylval = new Node(yytext, yylineno); return AND; }
 or                                  { yylval = new Node(yytext, yylineno); return OR; }
