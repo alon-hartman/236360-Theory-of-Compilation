@@ -19,54 +19,40 @@ void emitBinopRes(Node *lhs, Node *rhs, string op, Node *res)
     std::string leftReg = lhs->getReg();
     std::string rightReg = rhs->getReg();
     std::string resultReg;
-    if (lhs->m_type == types::Int || rhs->m_type == types::Int)
-    {
+    if (lhs->m_type == types::Int || rhs->m_type == types::Int) {
         operationSize = "i32";
-        if (lhs->m_type == types::Byte)
-        {
+        if (lhs->m_type == types::Byte) {
             leftReg = allocator.fresh_var("leftReg8to32");
             codebuffer.emit(leftReg + " = zext i8 " + lhs->m_reg + " to i32");
         }
-        if (rhs->m_type == types::Byte)
-        {
+        if (rhs->m_type == types::Byte) {
             rightReg = allocator.fresh_var("rightReg8to32");
             codebuffer.emit(rightReg + " = zext i8 " + rhs->m_reg + " to i32");
         }
     }
-    if (op == "/")
-    {
+    if (op == "/") {
         /**
          * TODO: need to emit a compare of rightReg with 0, and goto somewhere we print division error
          *       we call print in llvm.
          */
-        if (operationSize == "i8")
-        {
+        if (operationSize == "i8") {
             resultReg = allocator.fresh_var("udivResult");
             codebuffer.emit(resultReg + " = udiv " + operationSize + " " + leftReg + ", " + rightReg);
-        }
-        else // operationSize == "i32"
+        } else // operationSize == "i32"
         {
             resultReg = allocator.fresh_var("sdivResult");
             codebuffer.emit(resultReg + " = sdiv " + operationSize + " " + leftReg + ", " + rightReg);
         }
-    }
-    else if (op == "*")
-    {
+    } else if (op == "*") {
         resultReg = allocator.fresh_var("mulResult");
         codebuffer.emit(resultReg + " = mul " + operationSize + " " + leftReg + ", " + rightReg);
-    }
-    else if (op == "+")
-    {
+    } else if (op == "+") {
         resultReg = allocator.fresh_var("addResult");
         codebuffer.emit(resultReg + " = add " + operationSize + " " + leftReg + ", " + rightReg);
-    }
-    else if (op == "-")
-    {
+    } else if (op == "-") {
         resultReg = allocator.fresh_var("subResult");
         codebuffer.emit(resultReg + " = sub " + operationSize + " " + leftReg + ", " + rightReg);
-    }
-    else
-    {
+    } else {
         std::cout << "should never reach here!\n";
         exit(0);
     }
@@ -84,16 +70,13 @@ void emitBooleanBlockRelaEq(Node *lhs, Node *rhs, string op, Node *res)
     string opSize = "i8";
     string leftReg = lhs->getReg();
     string rightReg = rhs->getReg();
-    if (lhs->m_type == types::Int || rhs->m_type == types::Int)
-    {
+    if (lhs->m_type == types::Int || rhs->m_type == types::Int) {
         opSize = "i32";
-        if (lhs->m_type == types::Byte)
-        {
+        if (lhs->m_type == types::Byte) {
             leftReg = allocator.fresh_var("leftReg8to32");
             cb.emit(leftReg + " = zext i8 " + lhs->m_reg + " to i32");
         }
-        if (rhs->m_type == types::Byte)
-        {
+        if (rhs->m_type == types::Byte) {
             rightReg = allocator.fresh_var("rightReg8to32");
             cb.emit(rightReg + " = zext i8 " + rhs->m_reg + " to i32");
         }
@@ -111,35 +94,29 @@ void emitBooleanBlockRelaEq(Node *lhs, Node *rhs, string op, Node *res)
         opType = "slt";
     else if (op == ">")
         opType = "sgt";
-    else
-    {
+    else {
         std::cout << "[emitBooleanBlockRelaEq] this should never happen\n";
         exit(0);
     }
     cb.emit(res->m_reg + " = icmp " + opType + " " + opSize + " " + leftReg + ", " + rightReg);
     int address = cb.emit("br i1 " + res->m_reg + ", label @, label @");
-    res->true_list = cb.makelist({address, FIRST});
-    res->false_list = cb.makelist({address, SECOND});
+    res->true_list = cb.makelist({ address, FIRST });
+    res->false_list = cb.makelist({ address, SECOND });
 }
 
 void emitBooleanBlockShortCircuit(Node *lhs, Node *rhs, string op, Node *res)
 {
     CodeBuffer &cb = CodeBuffer::instance();
     res->m_label = lhs->m_label;
-    if (op == "OR")
-    {
+    if (op == "OR") {
         cb.bpatch(lhs->false_list, rhs->m_label);
         res->false_list = std::move(rhs->false_list);
         res->true_list = cb.merge(lhs->true_list, rhs->true_list);
-    }
-    else if (op == "AND")
-    {
+    } else if (op == "AND") {
         cb.bpatch(lhs->true_list, rhs->m_label);
         res->true_list = std::move(rhs->true_list);
         res->false_list = cb.merge(lhs->false_list, rhs->false_list);
-    }
-    else
-    {
+    } else {
         std::cout << "[emitBooleanBlockShortCircuit] this should never happen\n";
         exit(0);
     }
@@ -150,7 +127,7 @@ void emitLabelAndGoto(Node *res, std::vector<std::pair<int, BranchLabelIndex>> &
     CodeBuffer &cb = CodeBuffer::instance();
     res->m_label = cb.genLabel();
     int address = cb.emit("br label @");
-    list.push_back({address, FIRST});
+    list.push_back({ address, FIRST });
 }
 
 std::string openFunctionStack(Node *retType, Node *id, Node *formals)
@@ -160,6 +137,6 @@ std::string openFunctionStack(Node *retType, Node *id, Node *formals)
     std::string stack_reg = allocator.fresh_var("stackReg");
 
     cb.emit("define " + TypeToIRString(retType->m_type) + " @" +
-            id->m_name + "(" + TypesToIRString(formals->m_types_list) + ") {");
+        id->m_name + "(" + TypesToIRString(formals->m_types_list) + ") {");
     return stack_reg;
 }

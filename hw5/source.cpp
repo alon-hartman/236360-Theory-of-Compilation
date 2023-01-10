@@ -8,8 +8,7 @@ void Delete(int count, ...)
 
     va_start(list, count);
 
-    for (int i = 0; i < count; i++)
-    {
+    for (int i = 0; i < count; i++) {
         delete va_arg(list, Node *);
     }
 
@@ -20,8 +19,8 @@ SymTable::SymTable()
 {
     has_main = false;
     Scope scope(0);
-    std::vector<types> v1 = {types::String};
-    std::vector<types> v2 = {types::Int};
+    std::vector<types> v1 = { types::String };
+    std::vector<types> v2 = { types::Int };
     scope.entries.emplace_back("print", types::Void, v1, true, 0);
     scope.entries.emplace_back("printi", types::Void, v2, true, 0);
     scopes_stack.push_back(scope);
@@ -39,14 +38,10 @@ void SymTable::pop()
 {
     endScope();
     Scope &scope = scopes_stack.back();
-    for (auto entry : scope.entries)
-    {
-        if (!entry.is_func)
-        {
+    for (auto entry : scope.entries) {
+        if (!entry.is_func) {
             printID(entry.name, entry.offset, TypeToString(entry.return_type));
-        }
-        else
-        {
+        } else {
             std::vector<std::string> strings_vec = TypesToStrings(entry.types_vec);
             std::string string_type = TypeToString(entry.return_type);
             std::string s = makeFunctionType(string_type, strings_vec);
@@ -63,21 +58,17 @@ SymTable::Scope &SymTable::top()
 
 void SymTable::insert(Node *node, bool is_func)
 {
-    if (find_entry(node->m_name) != nullptr)
-    {
+    if (find_entry(node->m_name) != nullptr) {
         // variable with same name already exists
         errorDef(node->m_lineno, node->m_name);
         exit(0);
     }
-    Entry entry = {node->m_name, node->m_type,
+    Entry entry = { node->m_name, node->m_type,
                    node->m_types_list,
-                   is_func, top().offset};
-    if (is_func)
-    {
+                   is_func, top().offset };
+    if (is_func) {
         this->scopes_stack[0].entries.push_back(entry);
-    }
-    else
-    {
+    } else {
         this->top().entries.push_back(entry);
     }
     this->top().offset += !is_func;
@@ -92,21 +83,18 @@ void SymTable::insert_arg(Node *node)
         errorDef(node->m_lineno, node->m_name);
         exit(0);
     }
-    Entry entry = {node->m_name, node->m_type,
-                   node->m_types_list, false, top().min_arg_offset--};
+    Entry entry = { node->m_name, node->m_type,
+                   node->m_types_list, false, top().min_arg_offset-- };
     this->top().entries.push_back(entry);
 }
 
 SymTable::Entry *SymTable::find_entry(const std::string &name)
 {
-    for (int scope_num = scopes_stack.size() - 1; scope_num >= 0; --scope_num)
-    {
+    for (int scope_num = scopes_stack.size() - 1; scope_num >= 0; --scope_num) {
         Scope &scope = scopes_stack[scope_num];
-        for (int entry_num = 0; entry_num < scope.entries.size(); ++entry_num)
-        {
+        for (int entry_num = 0; entry_num < scope.entries.size(); ++entry_num) {
             Entry &entry = scope.entries[entry_num];
-            if (entry.name == name)
-            {
+            if (entry.name == name) {
                 return &entry;
             }
         }
@@ -116,11 +104,9 @@ SymTable::Entry *SymTable::find_entry(const std::string &name)
 
 bool SymTable::isInScope(SymTable::scope_type scope_type)
 {
-    for (int scope_num = scopes_stack.size() - 1; scope_num >= 0; --scope_num)
-    {
+    for (int scope_num = scopes_stack.size() - 1; scope_num >= 0; --scope_num) {
         Scope &scope = scopes_stack[scope_num];
-        if (scope.type == scope_type)
-        {
+        if (scope.type == scope_type) {
             return true;
         }
     }
@@ -129,16 +115,13 @@ bool SymTable::isInScope(SymTable::scope_type scope_type)
 
 void check_args_type(Node *node, SymTable::Entry *entry)
 {
-    if (node->m_types_list.size() != entry->types_vec.size())
-    {
+    if (node->m_types_list.size() != entry->types_vec.size()) {
         std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
         errorPrototypeMismatch(node->m_lineno, entry->name, strings_vec);
         exit(0);
     }
-    for (int i = 0; i < node->m_types_list.size(); ++i)
-    { // can the passed type be converted to the declared type?
-        if (!allowed_implicit_assignment(entry->types_vec[i], node->m_types_list[i]))
-        {
+    for (int i = 0; i < node->m_types_list.size(); ++i) { // can the passed type be converted to the declared type?
+        if (!allowed_implicit_assignment(entry->types_vec[i], node->m_types_list[i])) {
             std::vector<std::string> strings_vec = TypesToStrings(entry->types_vec);
             errorPrototypeMismatch(node->m_lineno, entry->name, strings_vec);
             exit(0);
@@ -153,8 +136,7 @@ bool allowed_implicit_assignment(types lhs, types rhs)
 
 bool allowed_explicit_assignment(types lhs, Node *node)
 {
-    if ((lhs != types::Int && lhs != types::Byte) || (node->m_type != types::Byte && node->m_type != types::Int))
-    {
+    if ((lhs != types::Int && lhs != types::Byte) || (node->m_type != types::Byte && node->m_type != types::Int)) {
         return false;
     }
     return true;
@@ -162,8 +144,7 @@ bool allowed_explicit_assignment(types lhs, Node *node)
 
 std::string TypeToString(types type)
 {
-    switch (type)
-    {
+    switch (type) {
     case types::Bool:
         return "BOOL";
     case types::Byte:
@@ -181,8 +162,7 @@ std::string TypeToString(types type)
 
 std::string TypeToIRString(types type)
 {
-    switch (type)
-    {
+    switch (type) {
     case types::Bool:
         return "i1";
     case types::Byte:
@@ -199,8 +179,7 @@ std::string TypeToIRString(types type)
 std::vector<std::string> TypesToStrings(std::vector<types> &vec)
 {
     std::vector<std::string> res;
-    for (int i = 0; i < vec.size(); ++i)
-    {
+    for (int i = 0; i < vec.size(); ++i) {
         res.push_back(TypeToString(vec[i]));
     }
     return res;
@@ -209,8 +188,7 @@ std::vector<std::string> TypesToStrings(std::vector<types> &vec)
 std::string TypesToIRString(std::vector<types> &vec)
 {
     std::ostringstream res("");
-    for (int i = 0; i < vec.size(); ++i)
-    {
+    for (int i = 0; i < vec.size(); ++i) {
         res << TypeToIRString(vec[i]) << (i == vec.size() - 1 ? "" : ", ");
     }
     return res.str();

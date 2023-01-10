@@ -25,7 +25,7 @@ const int BYTE_SIZE = 255;
 
 struct Node
 {
-  Node(const char *yytext = "", int yylineno = -1) : m_type(types::Void), m_name(yytext), m_lineno(yylineno), m_reg(""), m_val(0) {}
+  Node(const char *yytext = "", int yylineno = -1): m_type(types::Void), m_name(yytext), m_lineno(yylineno), m_reg(""), m_val(0) {}
   virtual ~Node() {}
   types m_type;
   string m_name;
@@ -62,9 +62,9 @@ struct Node
   }
 };
 
-struct Num : public Node
+struct Num: public Node
 {
-  Num(const char *yytext = "", int yylineno = -1, bool eval = true) : Node(yytext, yylineno)
+  Num(const char *yytext = "", int yylineno = -1, bool eval = true): Node(yytext, yylineno)
   {
     m_type = types::Int;
     if (eval)
@@ -77,25 +77,24 @@ struct Num : public Node
     return m_reg;
   }
 };
-struct IntType : public Node
+struct IntType: public Node
 {
-  IntType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Int; }
+  IntType(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno) { m_type = types::Int; }
   ~IntType() {}
 };
 
-struct VoidType : public Node
+struct VoidType: public Node
 {
-  VoidType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Void; }
+  VoidType(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno) { m_type = types::Void; }
   ~VoidType() {}
 };
 
-struct ByteType : public Num
+struct ByteType: public Num
 {
-  ByteType(const char *yytext = "", int yylineno = -1, bool eval = true) : Num(yytext, yylineno, eval)
+  ByteType(const char *yytext = "", int yylineno = -1, bool eval = true): Num(yytext, yylineno, eval)
   {
     m_type = types::Byte;
-    if (m_val > BYTE_SIZE)
-    {
+    if (m_val > BYTE_SIZE) {
       errorByteTooLarge(yylineno, m_name);
       exit(0);
     }
@@ -108,24 +107,24 @@ struct ByteType : public Num
   }
 };
 
-struct BoolType : public Node
+struct BoolType: public Node
 {
-  BoolType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno) { m_type = types::Bool; }
+  BoolType(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno) { m_type = types::Bool; }
   ~BoolType() {}
 };
 
-struct StringType : public Node
+struct StringType: public Node
 {
-  StringType(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
+  StringType(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno)
   {
     m_type = types::String;
   }
   ~StringType() {}
 };
 
-struct IDNode : public Node
+struct IDNode: public Node
 {
-  IDNode(const char *yytext = "", int yylineno = -1) : Node(yytext, yylineno)
+  IDNode(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno)
   {
     m_type = types::None;
   }
@@ -147,7 +146,7 @@ public:
   };
   struct Entry
   {
-    Entry(std::string name, types return_type, std::vector<types> types_vec, bool is_func, int offset) : name(name), return_type(return_type), types_vec(types_vec), is_func(is_func), offset(offset) {}
+    Entry(std::string name, types return_type, std::vector<types> types_vec, bool is_func, int offset): name(name), return_type(return_type), types_vec(types_vec), is_func(is_func), offset(offset) {}
     std::string name;
     types return_type;
     std::vector<types> types_vec;
@@ -160,7 +159,7 @@ public:
     int offset;
     int min_arg_offset;
     scope_type type;
-    Scope(int offset) : entries(), offset(offset), min_arg_offset(-1), type(scope_type::BLOCK) {}
+    Scope(int offset): entries(), offset(offset), min_arg_offset(-1), type(scope_type::BLOCK) {}
   };
   std::vector<Scope> scopes_stack;
   bool has_main;
