@@ -8,6 +8,8 @@
 
 // forward declarations
 class Node;
+// typdefs
+typedef vector<pair<int, BranchLabelIndex>> LabelList;
 
 std::string emitOperator(int val1, int val2, const char *op, const char *type = "i32");
 
@@ -18,6 +20,8 @@ void emitBooleanBlockRelaEq(Node *lhs, Node *rhs, string op, Node *res);
 void emitBooleanBlockShortCircuit(Node *lhs, Node *rhs, string op, Node *res);
 
 void emitLabelAndGoto(Node *res, std::vector<std::pair<int, BranchLabelIndex>> &list);
+
+void emitGoto(LabelList &list);
 
 std::string openFunctionStack(Node *retType, Node *id, Node *formals);
 

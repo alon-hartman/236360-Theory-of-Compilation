@@ -78,8 +78,9 @@ struct Node
   int m_lineno;
   string m_reg;
   int m_val;
-  vector<pair<int, BranchLabelIndex>> true_list;
-  vector<pair<int, BranchLabelIndex>> false_list;
+  LabelList true_list;
+  LabelList false_list;
+  LabelList next_list;
   string m_label;
 
   vector<types> m_types_list;

@@ -122,10 +122,17 @@ void emitBooleanBlockShortCircuit(Node *lhs, Node *rhs, string op, Node *res)
     }
 }
 
-void emitLabelAndGoto(Node *res, std::vector<std::pair<int, BranchLabelIndex>> &list)
+void emitLabelAndGoto(Node *res, LabelList &list)
 {
     CodeBuffer &cb = CodeBuffer::instance();
     res->m_label = cb.genLabel();
+    int address = cb.emit("\tbr label @");
+    list.push_back({ address, FIRST });
+}
+
+void emitGoto(LabelList &list)
+{
+    CodeBuffer &cb = CodeBuffer::instance();
     int address = cb.emit("\tbr label @");
     list.push_back({ address, FIRST });
 }
