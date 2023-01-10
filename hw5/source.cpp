@@ -1,4 +1,5 @@
 #include "source.hpp"
+#include "utils.hpp"
 #include <sstream>
 
 void Delete(int count, ...)
@@ -24,6 +25,11 @@ SymTable::SymTable()
     scope.entries.emplace_back("print", types::Void, v1, true, 0);
     scope.entries.emplace_back("printi", types::Void, v2, true, 0);
     scopes_stack.push_back(scope);
+}
+
+SymTable &SymTable::getInstance() {
+    static SymTable inst;
+    return inst;
 }
 
 SymTable::Scope &SymTable::push(scope_type type)
@@ -70,6 +76,11 @@ void SymTable::insert(Node *node, bool is_func)
         this->scopes_stack[0].entries.push_back(entry);
     } else {
         this->top().entries.push_back(entry);
+        if (node->m_reg == "") {
+            storeValInStack(this->curr_func_ptr, "0", entry.offset);
+        } else {
+            storeValInStack(this->curr_func_ptr, node->m_reg, entry.offset);
+        }
     }
     this->top().offset += !is_func;
     has_main |= (is_func && entry.name == "main");

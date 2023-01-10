@@ -21,4 +21,8 @@ void emitLabelAndGoto(Node *res, std::vector<std::pair<int, BranchLabelIndex>> &
 
 std::string openFunctionStack(Node *retType, Node *id, Node *formals);
 
+void storeValInStack(std::string stack_reg, std::string val, unsigned int offset);
+
+std::string loadValFromStack(std::string stack_reg, unsigned int offset);
+
 #endif

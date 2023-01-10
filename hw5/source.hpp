@@ -23,6 +23,52 @@ enum class types
 
 const int BYTE_SIZE = 255;
 
+class SymTable
+{
+  SymTable();
+public:
+  enum class scope_type
+  {
+    BLOCK,
+    FUNC,
+    IF,
+    WHILE,
+    ELSE
+  };
+  struct Entry
+  {
+    Entry(std::string name, types return_type, std::vector<types> types_vec, bool is_func, int offset): name(name), return_type(return_type), types_vec(types_vec), is_func(is_func), offset(offset) {}
+    std::string name;
+    types return_type;
+    std::vector<types> types_vec;
+    bool is_func;
+    int offset;
+  };
+  struct Scope
+  {
+    std::vector<Entry> entries;
+    int offset;
+    int min_arg_offset;
+    scope_type type;
+    Scope(int offset): entries(), offset(offset), min_arg_offset(-1), type(scope_type::BLOCK) {}
+  };
+  std::vector<Scope> scopes_stack;
+  bool has_main;
+  std::string curr_func_ptr;
+
+  static SymTable &getInstance();
+  Scope &push(scope_type type = scope_type::BLOCK);
+  void pop();
+  Scope &top();
+  void insert(Node *entry, bool is_func = false);
+
+  void insert_arg(Entry entry);
+  void insert_arg(Node *node);
+
+  Entry *find_entry(const std::string &name);
+  bool isInScope(SymTable::scope_type scope_type);
+};
+
 struct Node
 {
   Node(const char *yytext = "", int yylineno = -1): m_type(types::Void), m_name(yytext), m_lineno(yylineno), m_reg(""), m_val(0) {}
@@ -128,55 +174,21 @@ struct IDNode: public Node
   {
     m_type = types::None;
   }
+  std::string getReg() override
+  {
+    SymTable &sym = SymTable::getInstance();
+    SymTable::Entry *entry = sym.find_entry(this->m_name);
+    if (!entry) {
+      std::cout << "we fucked up\n";
+      exit(0);
+    }
+    m_reg = loadValFromStack(sym.curr_func_ptr, entry->offset);
+    return m_reg;
+  }
   ~IDNode() {}
 };
 
 void Delete(int count, ...);
-
-class SymTable
-{
-public:
-  enum class scope_type
-  {
-    BLOCK,
-    FUNC,
-    IF,
-    WHILE,
-    ELSE
-  };
-  struct Entry
-  {
-    Entry(std::string name, types return_type, std::vector<types> types_vec, bool is_func, int offset): name(name), return_type(return_type), types_vec(types_vec), is_func(is_func), offset(offset) {}
-    std::string name;
-    types return_type;
-    std::vector<types> types_vec;
-    bool is_func;
-    int offset;
-  };
-  struct Scope
-  {
-    std::vector<Entry> entries;
-    int offset;
-    int min_arg_offset;
-    scope_type type;
-    Scope(int offset): entries(), offset(offset), min_arg_offset(-1), type(scope_type::BLOCK) {}
-  };
-  std::vector<Scope> scopes_stack;
-  bool has_main;
-  std::string curr_func_ptr;
-
-  SymTable();
-  Scope &push(scope_type type = scope_type::BLOCK);
-  void pop();
-  Scope &top();
-  void insert(Node *entry, bool is_func = false);
-
-  void insert_arg(Entry entry);
-  void insert_arg(Node *node);
-
-  Entry *find_entry(const std::string &name);
-  bool isInScope(SymTable::scope_type scope_type);
-};
 
 std::string TypeToString(types type);
 std::string TypeToIRString(types type);
