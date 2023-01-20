@@ -60,6 +60,7 @@ Program: Funcs
     exit(0);
  }
   sym.pop();
+  CodeBuffer::instance().printGlobalBuffer();
   CodeBuffer::instance().printCodeBuffer();
 }
 
@@ -80,6 +81,7 @@ FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAR
             node.m_types_list = $5->m_types_list;
             sym.insert(&node, true);  // inserts function into scope
             sym.curr_func_ptr = openFunctionStack($1, $2, $5);
+            emitGoto($1->next_list);  // attach goto address to somewhere
           }
           LBRACE Statements RBRACE     
 { 
@@ -91,9 +93,10 @@ FuncDecl: RetType ID LPAREN {sym.push(SymTable::scope_type::FUNC);} Formals RPAR
     errorDef($2->m_lineno, $2->m_name);
     exit(0);
   }
+  CodeBuffer::instance().bpatch($1->next_list, $9->m_label);
+  emitFunctionReturn($$, $1);
+  CodeBuffer::instance().bpatch($9->next_list, $$->m_label);  // goto in case of no goto in statement
   CodeBuffer::instance().emit("}");
-  /* TODO: handle assings to function variables and reads from variables
-  */
   Delete(8, $1, $2, $3, $5, $6, $8, $9, $10); 
 }
 ;
@@ -121,21 +124,21 @@ FormalDecl: Type ID
   Delete(2, $1, $2);
   sym.insert_arg($$);
 }
-;
-Statements: Label Statement
+; 
+Statements: Statement
 { 
-  $$ = $2;
-  $$->m_label = $1->m_label;
-  Delete(1, $1);
-}
-            | Statements Label Statement
+  $$ = $1;
+  emitGoto($$->next_list);
+}  // TODO: think about next line: we need that each statement will be a basic block. whats the best implementation?
+            | Statements Statement
 { 
   $$ = $1;
   $$->m_types_list.push_back($2->m_type);
   CodeBuffer::instance().bpatch($1->next_list, $2->m_label);
-  $$->false_list = CodeBuffer::instance().merge($1->false_list, $3->false_list);
-  $$->next_list = $3->next_list;
-  Delete(2, $2, $3);
+  $$->false_list = CodeBuffer::instance().merge($1->false_list, $2->false_list);
+  $$->next_list = $2->next_list;
+  emitGoto($$->next_list);
+  Delete(1, $2);
 }
 ; 
 Statement: LBRACE M1 Statements RBRACE
@@ -149,6 +152,7 @@ Statement: LBRACE M1 Statements RBRACE
   $$ = $2;
   $$->setType($1);
   Delete(2, $1, $3);
+  $$->m_label = CodeBuffer::instance().genLabel();
   sym.insert($$);
 }
             | Type ID ASSIGN Exp SC
@@ -159,8 +163,10 @@ Statement: LBRACE M1 Statements RBRACE
   }
   $$ = $2;
   $$->setType($1);
-  $$->m_reg = $4->getReg();
-  sym.insert($$);
+  $$->m_reg = $4->m_reg;
+  $$->m_label = $4->m_label;
+  CodeBuffer::instance().bpatch($4->next_list, CodeBuffer::instance().genLabel());
+  sym.insert($$, false, $4);
   Delete(4, $3, $4, $5, $1);
 }
             | ID ASSIGN Exp SC
@@ -175,8 +181,10 @@ Statement: LBRACE M1 Statements RBRACE
     exit(0);
   }
   $$ = $1;
+  $$->m_label = $3->m_label;
   $$->m_type = entry->return_type;
-  storeValInStack(sym.curr_func_ptr, $3->getReg(), entry->offset);
+  CodeBuffer::instance().bpatch($3->next_list, CodeBuffer::instance().genLabel());
+  storeValInStack(sym.curr_func_ptr, $3->m_reg, entry->offset, $3);
   Delete(3, $2, $3, $4);
 }
             | Call SC
@@ -194,6 +202,7 @@ Statement: LBRACE M1 Statements RBRACE
   }
   $$ = new Node($1->getName(), yylineno);
   $$->m_type = types::Void;
+  emitFunctionReturn($$);
   Delete(2, $1, $2);
 }
             | RETURN Exp SC
@@ -206,45 +215,51 @@ Statement: LBRACE M1 Statements RBRACE
   }
   $$ = new Node("", yylineno);
   $$->setType($2);
+  emitFunctionReturn($$, $2);
+  CodeBuffer::instance().bpatch($2->next_list, $$->m_label);
+  $$->m_label = std::move($2->m_label);
+  $$->m_reg = std::move($2->m_reg);
   Delete(3, $1, $2, $3);
 }
-            | IF MIF LPAREN Exp RPAREN MCE Label Statement
+            | IF MIF LPAREN Exp RPAREN MCE Statement
 {
   $$ = new Node($1->getName(), yylineno);
-  $$->setType($8);
+  $$->setType($7);
   CodeBuffer &cb = CodeBuffer::instance();
   cb.bpatch($4->true_list, $7->m_label);
-  $$->next_list = cb.merge($4->false_list, $8->next_list);
+  $$->next_list = cb.merge($4->false_list, $7->next_list);
   $$->m_label = $4->m_label;
-  $$->false_list = $8->false_list;
-  Delete(6, $1, $3, $4, $5, $7, $8); 
+  $$->false_list = $7->false_list;
+  emitGoto($$->next_list);
+  Delete(5, $1, $3, $4, $5, $7);
   sym.pop();
 }
-            | IF MIF LPAREN Exp RPAREN MCE Label Statement ELSE {
-              emitGoto($8->next_list);
-            }  MELSE Label Statement
+            | IF MIF LPAREN Exp RPAREN MCE Statement ELSE { emitGoto($7->next_list); }
+              MELSE Statement
 { 
   $$ = new Node("", yylineno);
-  $$->setType($8);
+  $$->setType($7);
   CodeBuffer &cb = CodeBuffer::instance();
-  $$->next_list = cb.merge($8->next_list, $13->next_list);
+  $$->next_list = cb.merge($7->next_list, $11->next_list);
   $$->m_label = $4->m_label;
-  $$->false_list = cb.merge($8->false_list, $13->false_list);
+  $$->false_list = cb.merge($7->false_list, $11->false_list);
   cb.bpatch($4->true_list, $7->m_label);
-  cb.bpatch($4->false_list, $12->m_label);
-  Delete(9, $1, $3, $4, $5, $7, $8, $9, $12, $13); 
+  cb.bpatch($4->false_list, $11->m_label);
+  emitGoto($$->next_list);
+  Delete(7, $1, $3, $4, $5, $7, $8, $11); 
   sym.pop();
 }
-            | WHILE MWHILE LPAREN Exp RPAREN MCE Label Statement
+            | WHILE MWHILE LPAREN Exp RPAREN MCE Statement
 { 
   $$ = new Node($1->getName(), yylineno);
-  $$->setType($8);  // statement may contain return value
+  $$->setType($7);  // statement may contain return value
   CodeBuffer &cb = CodeBuffer::instance();
-  emitGoto($8->next_list);
-  cb.bpatch($8->next_list, $4->m_label);
+  emitGoto($7->next_list);
+  $$->m_label = $4->m_label;
+  cb.bpatch($7->next_list, $4->m_label);
   cb.bpatch($4->true_list, $7->m_label);
-  $$->next_list = cb.merge($4->false_list, $8->false_list);
-  Delete(6, $1, $8, $3, $4, $5, $7);
+  $$->next_list = cb.merge($4->false_list, $7->false_list);
+  Delete(5, $1, $3, $4, $5, $7);
   sym.pop();
 }
             | BREAK SC
@@ -254,6 +269,7 @@ Statement: LBRACE M1 Statements RBRACE
     exit(0);
   }
   $$ = new Node("", yylineno);
+  $$->m_label = CodeBuffer::instance().genLabel();
   emitGoto($$->false_list);
   Delete(2, $1, $2);
 }
@@ -265,6 +281,7 @@ Statement: LBRACE M1 Statements RBRACE
   }
   $$ = new Node($1->getName(), yylineno);
   $$->setType($1);
+  $$->m_label = CodeBuffer::instance().genLabel();
   emitGoto($$->next_list);
   Delete(2, $1, $2);
 }
@@ -280,6 +297,10 @@ Call: ID LPAREN ExpList RPAREN
   $$ = new Node($1->getName(), yylineno);
   $$->m_type = entry->return_type;
   $$->m_types_list = std::move($3->m_types_list);
+  $$->m_reg_list = std::move($3->m_reg_list);
+  emitFunctionCall($$, entry);
+  CodeBuffer::instance().bpatch($3->next_list, $$->m_label);
+  $$->m_label = $3->m_label;
   Delete(4, $3, $4, $1, $2);
 }
     | ID LPAREN RPAREN
@@ -303,6 +324,17 @@ ExpList: Exp
 { 
   $$ = $1;
   $$->m_types_list.push_back($$->m_type);
+  debug();
+  if($$->m_reg == "") {
+    CodeBuffer &cb = CodeBuffer::instance();
+    string label = cb.genLabel();
+    $$->m_reg = $$->getReg();
+    emitGoto($$->next_list);
+    cb.bpatch($1->next_list, label);
+    if($$->m_label == "")
+      $$->m_label = label;
+    }
+  $$->m_reg_list.push_back($$->m_reg);
 }
     | Exp COMMA ExpList
 { 
@@ -311,6 +343,14 @@ ExpList: Exp
   $$->m_types_list.insert($$->m_types_list.end(),
                           $3->m_types_list.begin(),
                           $3->m_types_list.end());
+  // if($$->m_reg == "")
+  //   $$->m_reg = $$->getReg();
+  $$->m_reg_list.push_back($$->m_reg);
+  $$->m_reg_list.insert($$->m_reg_list.end(),
+                          $3->m_reg_list.begin(),
+                          $3->m_reg_list.end());
+  CodeBuffer::instance().bpatch($1->next_list, $3->m_label);
+  $$->next_list = $3->next_list;
   Delete(2, $2, $3);
 }
 ; 
@@ -335,6 +375,16 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
     $$->m_type = types::Int;
   }
   $$->m_label = $4->m_label;
+  CodeBuffer &cb = CodeBuffer::instance();
+  cb.bpatch($4->true_list, $1->m_label);
+  cb.bpatch($4->false_list, $7->m_label);
+  $$->m_reg = Allocator::getInstance().fresh_var("phiReg");
+  std::string phi_label = cb.genLabel();
+  CodeBuffer::instance().emit("\t" + $$->m_reg + " = phi i32 [" + $1->m_reg + ", %" + $1->m_label + "]," + " [" + $7->m_reg + ", %" + $7->m_label + "]");
+  cb.bpatch($1->next_list,phi_label);
+  cb.bpatch($7->next_list,phi_label);
+  emitGoto($$->next_list);
+  
   Delete(7, $1, $2, $3, $4, $5, $6, $7);
 } %prec IF
     | Exp ADDITIVE Exp
@@ -374,38 +424,46 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
     exit(0);
   }
   $$->m_type = entry->return_type;
+  if($$->isNumType())
+    emitExpGoto($$);
 }
     | Call
 { 
   $$ = new Node("", yylineno);
-  $$->setType($1);     
+  $$->setType($1);
+  $$->next_list = std::move($1->next_list);
+  $$->m_label = std::move($1->m_label);
+  $$->m_reg = std::move($1->m_reg);
   Delete(1, $1);
 }
     | NUM
 { 
   $$ = $1;
+  emitExpGoto($$);
 }
     | NUM B
 { 
   $$ = new ByteType(($1->m_name).c_str(), yylineno);
   Delete(2, $1, $2);
+  emitExpGoto($$);
 }
     | STRING
 { 
   $$ = $1;
+  $$->m_reg = emitStringDeclarationAndAssignment($$);
 }
     | TRUE
 { 
-  $$ = new Node("", yylineno);
-  $$->m_type = types::Bool;
-  emitLabelAndGoto($$, $$->true_list);
+  $$ = new BoolType("true", yylineno);
+  emitExpGoto($$);
+  $$->true_list = $$->next_list;
   Delete(1, $1);
 }
     | FALSE
 { 
-  $$ =new Node("", yylineno);
-  $$->m_type = types::Bool;
-  emitLabelAndGoto($$, $$->false_list);
+  $$ = new BoolType("false", yylineno);
+  emitExpGoto($$);
+  $$->false_list = $$->next_list;
   Delete(1, $1); 
 }
     | NOT Exp
@@ -472,6 +530,12 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   }
   $$ = new Node($4->m_name.c_str(), yylineno);
   $$->m_type = $2->m_type;
+  $$->m_lineno = $2->m_lineno;
+  $$->m_reg = Allocator::getInstance().fresh_var("explicitConvReg");
+  $$->m_label = $4->m_label;
+  CodeBuffer::instance().bpatch($4->next_list, CodeBuffer::instance().genLabel());
+  emitTypeConversion($$, $4);
+  emitGoto($$->next_list);
   Delete(4, $1, $2, $3, $4);
 }
 ;
@@ -483,13 +547,9 @@ MWHILE : { sym.push(SymTable::scope_type::WHILE); }
 MCE: { if(yyvsp[-1]->m_type != types::Bool) {
            errorMismatch(yyvsp[-1]->m_lineno);
            exit(0);
-       } } // Check Exp
-;
-Label: 
-{
-  $$ = new Node("", yylineno);
-  $$->m_label = CodeBuffer::instance().genLabel();
-}
+       }
+       if(yyvsp[-1]->m_label == "" && yyvsp[-1]->m_name != "")  // only "true" or "false", not "true and false"
+           emitBooleanNoOp(yyvsp[-1]); } // Check Exp
 ;
 %%
 

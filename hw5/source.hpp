@@ -8,8 +8,10 @@
 
 #include "hw3_output.hpp"
 #include "bp.hpp"
-#include "utils.hpp"
 using namespace output;
+
+// forward declaration
+struct Node;
 
 enum class types
 {
@@ -60,7 +62,7 @@ public:
   Scope &push(scope_type type = scope_type::BLOCK);
   void pop();
   Scope &top();
-  void insert(Node *entry, bool is_func = false);
+  void insert(Node *entry, bool is_func = false, Node *rhs = nullptr);
 
   void insert_arg(Entry entry);
   void insert_arg(Node *node);
@@ -84,6 +86,7 @@ struct Node
   string m_label;
 
   vector<types> m_types_list;
+  vector<string> m_reg_list;
 
   virtual void setName(Node *other)
   {
@@ -118,11 +121,7 @@ struct Num: public Node
       m_val = std::stoi(m_name);
   }
   ~Num() {}
-  std::string getReg() override
-  {
-    m_reg = emitOperator(0, m_val, "add");
-    return m_reg;
-  }
+  std::string getReg() override;
 };
 struct IntType: public Node
 {
@@ -147,17 +146,20 @@ struct ByteType: public Num
     }
   }
   ~ByteType() {}
-  std::string getReg() override
-  {
-    m_reg = emitOperator(0, m_val, "add", "i8");
-    return m_reg;
-  }
+  std::string getReg() override;
 };
 
 struct BoolType: public Node
 {
-  BoolType(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno) { m_type = types::Bool; }
+  BoolType(const char *yytext = "", int yylineno = -1): Node(yytext, yylineno)
+  {
+    m_type = types::Bool;
+    m_val = 0;
+    if (m_name == "true")
+      m_val = 1;
+  }
   ~BoolType() {}
+  std::string getReg() override;
 };
 
 struct StringType: public Node
@@ -175,17 +177,7 @@ struct IDNode: public Node
   {
     m_type = types::None;
   }
-  std::string getReg() override
-  {
-    SymTable &sym = SymTable::getInstance();
-    SymTable::Entry *entry = sym.find_entry(this->m_name);
-    if (!entry) {
-      std::cout << "we fucked up\n";
-      exit(0);
-    }
-    m_reg = loadValFromStack(sym.curr_func_ptr, entry->offset);
-    return m_reg;
-  }
+  std::string getReg() override;
   ~IDNode() {}
 };
 

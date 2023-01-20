@@ -25,6 +25,7 @@ SymTable::SymTable()
     scope.entries.emplace_back("print", types::Void, v1, true, 0);
     scope.entries.emplace_back("printi", types::Void, v2, true, 0);
     scopes_stack.push_back(scope);
+    emitPrintFunctions();
 }
 
 SymTable &SymTable::getInstance() {
@@ -42,18 +43,18 @@ SymTable::Scope &SymTable::push(scope_type type)
 
 void SymTable::pop()
 {
-    endScope();
+    // endScope();
     Scope &scope = scopes_stack.back();
-    for (auto entry : scope.entries) {
-        if (!entry.is_func) {
-            printID(entry.name, entry.offset, TypeToString(entry.return_type));
-        } else {
-            std::vector<std::string> strings_vec = TypesToStrings(entry.types_vec);
-            std::string string_type = TypeToString(entry.return_type);
-            std::string s = makeFunctionType(string_type, strings_vec);
-            printID(entry.name, entry.offset, s);
-        }
-    }
+    // for (auto entry : scope.entries) {
+    //     if (!entry.is_func) {
+    //         printID(entry.name, entry.offset, TypeToString(entry.return_type));
+    //     } else {
+    //         std::vector<std::string> strings_vec = TypesToStrings(entry.types_vec);
+    //         std::string string_type = TypeToString(entry.return_type);
+    //         std::string s = makeFunctionType(string_type, strings_vec);
+    //         printID(entry.name, entry.offset, s);
+    //     }
+    // }
     scopes_stack.pop_back();
 }
 
@@ -62,7 +63,7 @@ SymTable::Scope &SymTable::top()
     return scopes_stack.back();
 }
 
-void SymTable::insert(Node *node, bool is_func)
+void SymTable::insert(Node *node, bool is_func, Node *rhs)
 {
     if (find_entry(node->m_name) != nullptr) {
         // variable with same name already exists
@@ -79,7 +80,7 @@ void SymTable::insert(Node *node, bool is_func)
         if (node->m_reg == "") {
             storeValInStack(this->curr_func_ptr, "0", entry.offset);
         } else {
-            storeValInStack(this->curr_func_ptr, node->m_reg, entry.offset);
+            storeValInStack(this->curr_func_ptr, node->m_reg, entry.offset, rhs);
         }
     }
     this->top().offset += !is_func;
@@ -182,6 +183,8 @@ std::string TypeToIRString(types type)
         return "i32";
     case types::Void:
         return "void";
+    case types::String:
+        return "i8*";
     default:
         return ":(";
     };
@@ -203,4 +206,34 @@ std::string TypesToIRString(std::vector<types> &vec)
         res << TypeToIRString(vec[i]) << (i == vec.size() - 1 ? "" : ", ");
     }
     return res.str();
+}
+
+std::string IDNode::getReg()
+{
+    SymTable &sym = SymTable::getInstance();
+    SymTable::Entry *entry = sym.find_entry(this->m_name);
+    if (!entry) {
+        std::cout << "we fucked up\n";
+        exit(0);
+    }
+    m_reg = loadValFromStack(sym.curr_func_ptr, entry->offset, entry);
+    return m_reg;
+}
+
+std::string Num::getReg()
+{
+    m_reg = emitOperator(0, m_val, "add");
+    return m_reg;
+}
+
+std::string ByteType::getReg()
+{
+    m_reg = emitOperator(0, m_val, "add", "i8");
+    return m_reg;
+}
+
+std::string BoolType::getReg()
+{
+    m_reg = emitOperator(0, m_val, "add", "i1");
+    return m_reg;
 }
