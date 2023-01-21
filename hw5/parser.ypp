@@ -406,11 +406,20 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   CodeBuffer &cb = CodeBuffer::instance();
   cb.bpatch($4->true_list, $1->m_label);
   cb.bpatch($4->false_list, $7->m_label);
+  // we want to use phi, but for that we need to know $1 and $7's last labels, which are
+  // not available to us. Solution: let's create them.
+  std::string phi_label = Allocator::getInstance().fresh_var("phiLabel");
+  std::string first_exp_label = cb.genLabel();
+  cb.bpatch($1->next_list, first_exp_label);
+  cb.emit("\t br label " + phi_label);
+  std::string second_exp_label = cb.genLabel();
+  cb.bpatch($7->next_list, second_exp_label);
+  cb.emit("\t br label " + phi_label);
   $$->m_reg = Allocator::getInstance().fresh_var("phiReg");
-  std::string phi_label = cb.genLabel();
-  CodeBuffer::instance().emit("\t" + $$->m_reg + " = phi i32 [" + $1->m_reg + ", %" + $1->m_label + "]," + " [" + $7->m_reg + ", %" + $7->m_label + "]");
-  cb.bpatch($1->next_list, phi_label);
-  cb.bpatch($7->next_list, phi_label);
+  cb.emit(phi_label.substr(1) + ":");
+  CodeBuffer::instance().emit("\t" + $$->m_reg + " = phi " + TypeToIRString($1->m_type) \
+                              + " [" + $1->m_reg + ", %" + first_exp_label + "]," + " [" + \
+                              $7->m_reg + ", %" + second_exp_label + "]");
   emitGoto($$->next_list);
   
   Delete(7, $1, $2, $3, $4, $5, $6, $7);
