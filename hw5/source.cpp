@@ -43,18 +43,6 @@ SymTable::Scope &SymTable::push(scope_type type)
 
 void SymTable::pop()
 {
-    // endScope();
-    Scope &scope = scopes_stack.back();
-    // for (auto entry : scope.entries) {
-    //     if (!entry.is_func) {
-    //         printID(entry.name, entry.offset, TypeToString(entry.return_type));
-    //     } else {
-    //         std::vector<std::string> strings_vec = TypesToStrings(entry.types_vec);
-    //         std::string string_type = TypeToString(entry.return_type);
-    //         std::string s = makeFunctionType(string_type, strings_vec);
-    //         printID(entry.name, entry.offset, s);
-    //     }
-    // }
     scopes_stack.pop_back();
 }
 

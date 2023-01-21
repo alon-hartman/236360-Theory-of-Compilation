@@ -9,9 +9,10 @@
 #include "hw3_output.hpp"
 #include "bp.hpp"
 using namespace output;
-
 // forward declaration
 struct Node;
+
+using LabelList = vector<pair<int, BranchLabelIndex>>;
 
 enum class types
 {
