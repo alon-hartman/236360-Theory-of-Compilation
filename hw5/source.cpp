@@ -234,6 +234,7 @@ std::string ByteType::getReg()
 
 std::string BoolType::getReg()
 {
-    m_reg = emitOperator(0, m_val, "add", "i1");
+    if (m_reg == "")
+        m_reg = emitOperator(0, m_val, "add", "i1");
     return m_reg;
 }

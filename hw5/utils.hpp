@@ -35,9 +35,13 @@ std::string emitStringDeclarationAndAssignment(Node *node);
 
 void emitFunctionCall(Node *func, SymTable::Entry *entry);
 
-void emitFunctionReturn(Node *node, Node *return_val = nullptr);
+void emitFunctionReturn(Node *node, Node *return_val = nullptr, types return_type = types::Void);
 
 void emitBooleanNoOp(Node *id_node);
+
+void emitBooleanAssignment(Node *bool_node);
+
+void createBooleanLists(Node *node);
 
 void debug();
 

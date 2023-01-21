@@ -218,7 +218,7 @@ std::string loadValFromStack(std::string stack_reg, int offset, SymTable::Entry 
             res = trunced;
         }
         if (in->return_type == types::Bool) {
-            cb.emit("\t " + trunced + " = trunc i32 " + res + " to i1");
+            cb.emit("\t" + trunced + " = trunc i32 " + res + " to i1");
             res = trunced;
         }
     }
@@ -302,13 +302,26 @@ void emitFunctionCall(Node *func, SymTable::Entry *entry)
     CodeBuffer &cb = CodeBuffer::instance();
     Allocator &allocator = Allocator::getInstance();
     std::string parameters_string;
-    assert(entry->types_vec == func->m_types_list);
+    assert(entry->types_vec.size() == func->m_types_list.size());
+    func->m_label = cb.genLabel();
+    for (int i = 0; i < func->m_types_list.size(); ++i) {
+        if (func->m_types_list[i] == types::Byte && entry->types_vec[i] == types::Int) {
+            std::string conv = allocator.fresh_var("Reg8to32");
+            cb.emit("\t" + conv + " = zext i8 " + func->m_reg_list[i] + " to i32");
+            func->m_reg_list[i] = conv;
+            func->m_types_list[i] = types::Int;
+        } else if (func->m_types_list[i] == types::Int && entry->types_vec[i] == types::Byte) {
+            std::string conv = allocator.fresh_var("Reg32to8");
+            cb.emit("\t" + conv + " = trunc i32 " + func->m_reg_list[i] + " to i8");
+            func->m_reg_list[i] = conv;
+            func->m_types_list[i] = types::Byte;
+        }
+    }
     for (int i = 0; i < func->m_types_list.size(); ++i) {
         parameters_string += TypeToIRString(func->m_types_list[i]) + " ";
         parameters_string += func->m_reg_list[i] + ", ";
     }
     parameters_string = parameters_string.substr(0, parameters_string.size() - 2);
-    func->m_label = cb.genLabel();
     if (entry->return_type == types::Void) {
         cb.emit("\tcall " + TypeToIRString(entry->return_type) + " @" + entry->name + "(" + parameters_string + ")");
     } else {
@@ -318,11 +331,23 @@ void emitFunctionCall(Node *func, SymTable::Entry *entry)
     emitGoto(func->next_list);
 }
 
-void emitFunctionReturn(Node *node, Node *return_val)
+void emitFunctionReturn(Node *node, Node *return_val, types return_type)
 {
     CodeBuffer &cb = CodeBuffer::instance();
+    Allocator &allocator = Allocator::getInstance();
     node->m_label = cb.genLabel();
     if (return_val != nullptr) {
+        if ((return_val->m_type == types::Int) && (return_type == types::Byte)) {
+            std::string correct_size = allocator.fresh_var("Reg32to8");
+            cb.emit("\t" + correct_size + " = trunc i32 " + return_val->m_reg + " to i8");
+            return_val->m_reg = correct_size;
+            return_val->m_type = types::Byte;
+        } else if ((return_val->m_type == types::Byte) && (return_type == types::Int)) {
+            std::string correct_size = allocator.fresh_var("Reg8to32");
+            cb.emit("\t" + correct_size + " = zext i8 " + return_val->m_reg + " to i32");
+            return_val->m_reg = correct_size;
+            return_val->m_type = types::Int;
+        }
         std::string return_reg = return_val->m_reg;
         if (return_reg == "" && return_val->m_type != types::Void)
             return_reg = "0";
@@ -332,15 +357,50 @@ void emitFunctionReturn(Node *node, Node *return_val)
     }
 }
 
+void emitBooleanAssignment(Node *bool_node)
+{
+    if (bool_node->true_list.size() == 0 && bool_node->false_list.size() == 0)
+        return;
+    CodeBuffer &cb = CodeBuffer::instance();
+    Allocator &allocator = Allocator::getInstance();
+    std::string true_reg = allocator.fresh_var("true_reg");
+    std::string false_reg = allocator.fresh_var("false_reg");
+    std::string true_label = cb.genLabel();
+    cb.emit("\t" + true_reg + " = add i1 0, 1");
+    emitGoto(bool_node->next_list);
+    std::string false_label = cb.genLabel();
+    cb.emit("\t" + false_reg + " = add i1 0, 0");
+    emitGoto(bool_node->next_list);
+    cb.bpatch(bool_node->true_list, true_label);
+    cb.bpatch(bool_node->false_list, false_label);
+
+    bool_node->m_reg = Allocator::getInstance().fresh_var("phiRegBoolAssign");
+    std::string phi_label = cb.genLabel();
+    CodeBuffer::instance().emit("\t" + bool_node->m_reg + " = phi i1 [" + true_reg + ", %" + true_label + "]," + " [" + false_reg + ", %" + false_label + "]");
+    cb.bpatch(bool_node->next_list, phi_label);
+    emitGoto(bool_node->next_list);
+}
+
+void createBooleanLists(Node *node)
+{
+    if (node->true_list.size() != 0 || node->false_list.size() != 0)
+        return;
+    if (node->m_reg == "")
+        node->m_reg = node->getReg();
+    CodeBuffer &cb = CodeBuffer::instance();
+    Allocator &allocator = Allocator::getInstance();
+    std::string label = cb.genLabel();
+    std::string cmpReg = allocator.fresh_var("cmpReg");
+    cb.emit("\t" + cmpReg + " = icmp eq i1 1, " + node->m_reg);
+    int address = cb.emit("\tbr i1 " + node->m_reg + ", label @, label @");
+    node->true_list = cb.makelist({ address, FIRST });
+    node->false_list = cb.makelist({ address, SECOND });
+    cb.bpatch(node->next_list, label);
+}
+
 void debug()
 {
     return;
 }
 
-/**
- * TODO: IN FRIDAY -
- * when reading TRUE or FALSE, we need to create a register of this node with val 0/1,
- * inside a basic block - label and goto. because current implementation (no assignemnt to register, just wire
- * truelist/falselist) doesnt work because that it doesnt bpatch previous basic block's goto statment.
- */
-
+// TODO: handle bools in function calls like we did in assignments
