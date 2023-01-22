@@ -34,6 +34,7 @@
 %token INT
 %token BYTE
 %token BOOL
+%left lowest_prec
 %left IF
 %nonassoc ASSIGN
 %left OR
@@ -411,9 +412,19 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   std::string phi_label = Allocator::getInstance().fresh_var("phiLabel");
   std::string first_exp_label = cb.genLabel();
   cb.bpatch($1->next_list, first_exp_label);
+  if($$->m_type == types::Int && $1->m_type == types::Byte) {
+    std::string new_reg = Allocator::getInstance().fresh_var("extReg");
+    cb.emit("\t" + new_reg + " = zext i8 " + $1->m_reg + " to i32");
+    $1->m_reg = new_reg;
+  }
   cb.emit("\t br label " + phi_label);
   std::string second_exp_label = cb.genLabel();
   cb.bpatch($7->next_list, second_exp_label);
+  if($$->m_type == types::Int && $7->m_type == types::Byte) {
+    std::string new_reg = Allocator::getInstance().fresh_var("extReg");
+    cb.emit("\t" + new_reg + " = zext i8 " + $7->m_reg + " to i32");
+    $7->m_reg = new_reg;
+  }
   cb.emit("\t br label " + phi_label);
   $$->m_reg = Allocator::getInstance().fresh_var("phiReg");
   cb.emit(phi_label.substr(1) + ":");
@@ -423,7 +434,7 @@ Exp : LPAREN Exp RPAREN                   { $$ = $2; }
   emitGoto($$->next_list);
   
   Delete(7, $1, $2, $3, $4, $5, $6, $7);
-} %prec IF
+} %prec lowest_prec
     | Exp ADDITIVE Exp
 { 
   if(!$1->isNumType() || !$3->isNumType()) {
